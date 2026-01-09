@@ -166,6 +166,7 @@ class PromptItemWidget(QWidget):
         
         self.ln_ignore = QLineEdit()
         self.ln_ignore.setPlaceholderText("Ignore: .git, node_modules, __pycache__, .idea, .vscode, dist, build")
+        self.ln_ignore.setText("Ignore: .git, node_modules, __pycache__, .idea, .vscode, dist, build")
         self.ln_ignore.textChanged.connect(self._emit)
         
         col_path.addLayout(row_p)

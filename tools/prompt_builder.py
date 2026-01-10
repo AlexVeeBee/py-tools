@@ -122,6 +122,7 @@ class PromptComposerTool(QWidget):
         self.list_widget = OverlayFileListWidget()
         self.list_widget.model().rowsMoved.connect(lambda: self.mark_as_modified())
         self.list_widget.filesDropped.connect(self.handle_files_dropped)
+        self.list_widget.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         splitter.addWidget(self.list_widget)
 
         # Preview Area

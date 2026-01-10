@@ -4,6 +4,19 @@ from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, pyqtSignal
 from components.styles import C_DANGER, C_TEXT_MUTED, C_TEXT_MAIN, C_BORDER, C_BG_INPUT, C_PRIMARY
 from components.mime_parser import DragAndDropParser # Imported Plugin
+doeblockFileTypes = {
+    'txt': 'plaintext',
+    'md': 'Markdown',
+    'json': 'JSON',
+    'yaml': 'YAML',
+    'yml': 'YAML',
+    'csv': 'CSV',
+    'py': 'Python',
+    'js': 'JavaScript',
+    'ts': 'TypeScript',
+    'java': 'Java',
+    'cpp': 'C++',
+}
 
 # Helper for Droppable Line Edit
 class DroppableLineEdit(QLineEdit):
@@ -74,6 +87,10 @@ def generate_tree(root, ignore):
     if root: output.append(os.path.basename(root)+"/"); add(root)
     return "\n".join(output)
 
+def get_codeblock_language(path):
+    ext = os.path.splitext(path)[1][1:].lower()
+    return doeblockFileTypes.get(ext, 'plaintext')
+
 def compile_prompt_data(data, root=""):
     mode = data.get("type", "Message")
     text = data.get("text", "").strip()
@@ -84,7 +101,8 @@ def compile_prompt_data(data, root=""):
         if mode == "File":
             try: 
                 with open(tgt, 'r', encoding='utf-8', errors='ignore') as f:
-                    out += f"\nFile: {disp}\n```\n{f.read()}\n```\n"
+                    lang = get_codeblock_language(tgt)
+                    out += f"\nFile: {disp}\n```{lang}\n{f.read()}\n```\n"
             except: out += f"[Error reading {disp}]\n"
         elif mode == "Folder Tree":
             out += f"\nDir: {disp}\n```\n{generate_tree(tgt, data.get('ignore_patterns',''))}\n```\n"

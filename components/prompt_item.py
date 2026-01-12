@@ -16,6 +16,10 @@ doeblockFileTypes = {
     'ts': 'TypeScript',
     'java': 'Java',
     'cpp': 'C++',
+    'html': 'HTML',
+    'htm': 'HTML',
+    'css': 'CSS',
+    'vue': 'Vue',
 }
 
 # Helper for Droppable Line Edit

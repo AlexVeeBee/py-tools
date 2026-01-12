@@ -9,6 +9,7 @@ class DragAndDropParser:
     2. VS Code Tab Dragging (often text/plain)
     3. VS Code Tree View Dragging
     4. URL cleaning and validation
+    5. System-dependent path separator normalization
     """
 
     @staticmethod
@@ -22,7 +23,8 @@ class DragAndDropParser:
                 if url.isLocalFile():
                     path = url.toLocalFile()
                     if path and os.path.exists(path):
-                        paths.append(path)
+                        # Ensure slash consistency for URL drops too
+                        paths.append(DragAndDropParser._normalize_separators(path))
 
         # 2. Try Text Fallback (VS Code Tabs, some Linux DMs)
         # If no URLs were found, check if it's a text drop containing a path
@@ -38,6 +40,14 @@ class DragAndDropParser:
         return paths
 
     @staticmethod
+    def _normalize_separators(path: str) -> str:
+        """Enforces system-specific path separators."""
+        if os.name == 'nt':
+            return path.replace("/", "\\")
+        else:
+            return path.replace("\\", "/")
+
+    @staticmethod
     def _clean_text_path(raw_text: str) -> str:
         """Cleans up raw text that might be a file URI or a messy path."""
         clean = raw_text.strip()
@@ -51,5 +61,8 @@ class DragAndDropParser:
         # Handle Windows specific quirk: /C:/Users/... -> C:/Users/...
         if os.name == 'nt' and clean.startswith("/") and len(clean) > 2 and clean[2] == ":":
             clean = clean[1:]
+
+        # Switch the slashes if needed
+        clean = DragAndDropParser._normalize_separators(clean)
             
         return clean

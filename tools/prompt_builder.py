@@ -7,7 +7,8 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDragMoveEvent
 
-from components.prompt_item import PromptItemWidget
+# Added DroppableLineEdit to imports
+from components.prompt_item import PromptItemWidget, DroppableLineEdit
 from components.db_manager import DBManager
 from components.prompt_state_dialog import PromptStateDialog
 from components.styles import apply_class, C_PRIMARY
@@ -90,10 +91,13 @@ class PromptComposerTool(QWidget):
         
         lbl_root = QLabel("PROJECT ROOT:")
         apply_class(lbl_root, "text-primary font-bold")
-        self.ln_root = QLineEdit()
+        
+        # Use DroppableLineEdit for root so dragging folders works there too
+        self.ln_root = DroppableLineEdit()
         self.ln_root.setPlaceholderText("/path/to/project/root")
         self.ln_root.textChanged.connect(self.mark_as_modified)
         self.ln_root.textChanged.connect(self.refresh_all_paths)
+        self.ln_root.fileDropped.connect(self.ln_root.setText)
         
         btn_browse = QPushButton("[...]")
         btn_browse.setFixedWidth(40)
@@ -271,7 +275,12 @@ class PromptComposerTool(QWidget):
     
     def browse_root(self):
         d = QFileDialog.getExistingDirectory(self, "Select Project Root")
-        if d: self.ln_root.setText(d)
+        if d:
+            # Manually fix slashes here too, because QFileDialog often returns '/' even on Windows.
+            # This ensures it matches the format produced by DragAndDropParser so 'startswith' checks pass.
+            if os.name == 'nt':
+                d = d.replace("/", "\\")
+            self.ln_root.setText(d)
 
     def refresh_all_paths(self):
         for i in range(self.list_widget.count()):

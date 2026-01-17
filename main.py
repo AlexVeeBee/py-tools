@@ -15,7 +15,7 @@ from components.dep_checker import DependencyChecker
 # Tools (Standard)
 from tools.prompt_builder import PromptComposerTool
 from tools.db_editor import DatabaseEditorTool
-# REMOVED: from tools.audio_viz import AudioVisualizerTool (Moved inside class)
+from tools.help import HelpViewerTool
 
 class AppShell(QMainWindow):
     def __init__(self):
@@ -64,11 +64,20 @@ class AppShell(QMainWindow):
         act_db.triggered.connect(lambda: self.safe_launch_tool(DatabaseEditorTool, "DB EDITOR"))
         tools_menu.addAction(act_db)
 
+        tools_menu.addSeparator()
+
+        act_other_menu = tools_menu.addMenu("Other Tools")
+
         # Audio Viz Tool
         act_viz = QAction("Audio Visualizer", self)
         # We connect to a specific method instead of a lambda with the class directly
         act_viz.triggered.connect(self.launch_audio_viz) 
-        tools_menu.addAction(act_viz)
+        act_other_menu.addAction(act_viz)
+
+        tools_menu.addSeparator()
+        help_action = QAction("Help / Documentation", self)
+        help_action.triggered.connect(lambda: self.safe_launch_tool(HelpViewerTool, "HELP"))
+        tools_menu.addAction(help_action)
 
         # --- CENTRAL ---
         central_widget = QWidget()
@@ -161,9 +170,21 @@ class AppShell(QMainWindow):
 
     def add_home_tab(self):
         try:
-            self.add_tab(PlaceholderWidget(), "HOME")
+            home_widget = PlaceholderWidget()
+            # Connect the signal from the dashboard to the handler
+            home_widget.toolRequested.connect(self.handle_home_request)
+            self.add_tab(home_widget, "HOME")
         except Exception:
-            pass
+            traceback.print_exc()
+
+    def handle_home_request(self, tool_key):
+        """Handles button clicks from the Home Dashboard"""
+        if tool_key == "prompt":
+            self.safe_launch_tool(PromptComposerTool, "PROMPT BUILDER")
+        elif tool_key == "db":
+            self.safe_launch_tool(DatabaseEditorTool, "DB EDITOR")
+        elif tool_key == "help":
+            self.safe_launch_tool(HelpViewerTool, "HELP")
 
     def close_tab(self, index): 
         try:

@@ -4,10 +4,9 @@ from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QLabel, QPushButton,
                              QDialog, QVBoxLayout, QTreeWidget, QTreeWidgetItem, 
                              QDialogButtonBox, QMessageBox, QTreeWidgetItemIterator)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QIcon
+from PyQt6.QtGui import QIcon, QPainter, QColor, QPixmap
 
-from components.styles import C_TEXT_MAIN, C_TEXT_MUTED, C_BG_INPUT, C_BORDER, C_DANGER, C_PRIMARY
-from PyQt6.QtGui import QPainter, QColor
+from components.styles import C_TEXT_MUTED, C_BG_INPUT, C_BORDER, C_DANGER, C_PRIMARY, C_TEXT_MAIN
 
 class TreeSelectionDialog(QDialog):
     """Popup dialog to select specific files from a tree."""
@@ -53,31 +52,55 @@ class TreeSelectionDialog(QDialog):
         self._add_children(root_item, self.root_path)
 
     def _add_children(self, parent_item, path):
-        try: items = sorted(os.listdir(path))
-        except PermissionError: return
+        try:
+            all_items = os.listdir(path)
+        except PermissionError:
+            return
 
-        for name in items:
-            if name.startswith('.') or self.is_ignored(name): continue
+        dirs = []
+        files = []
 
+        # 1. Filter and categorize
+        for name in all_items:
+            if name.startswith('.') or self.is_ignored(name):
+                continue
+            
             full_path = os.path.join(path, name)
+            if os.path.isdir(full_path):
+                dirs.append((name, full_path))
+            else:
+                files.append((name, full_path))
+
+        # 2. Sort: Folders A-Z, then Files A-Z
+        dirs.sort(key=lambda x: x[0].lower())
+        files.sort(key=lambda x: x[0].lower())
+
+        # 3. Add Directories First
+        for name, full_path in dirs:
             item = QTreeWidgetItem(parent_item)
             item.setText(0, name)
             item.setData(0, Qt.ItemDataRole.UserRole, full_path)
             
-            if os.path.isdir(full_path):
-                # Set folder icon with custom color
-                icon = QIcon.fromTheme("folder")
+            # Icon styling
+            icon = QIcon.fromTheme("folder")
+            if not icon.isNull():
                 pixmap = icon.pixmap(16, 16)
                 painter = QPainter(pixmap)
                 painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
                 painter.fillRect(pixmap.rect(), QColor(C_TEXT_MAIN))
                 painter.end()
                 item.setIcon(0, QIcon(pixmap))
-                self._add_children(item, full_path)
-                self._add_children(item, full_path)
-            else:
-                item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-                item.setCheckState(0, Qt.CheckState.Checked if full_path in self.current_selection else Qt.CheckState.Unchecked)
+            
+            # Recursion (Fixed duplicate call)
+            self._add_children(item, full_path)
+
+        # 4. Add Files Second
+        for name, full_path in files:
+            item = QTreeWidgetItem(parent_item)
+            item.setText(0, name)
+            item.setData(0, Qt.ItemDataRole.UserRole, full_path)
+            item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
+            item.setCheckState(0, Qt.CheckState.Checked if full_path in self.current_selection else Qt.CheckState.Unchecked)
 
     def get_selected_files(self):
         selected = []

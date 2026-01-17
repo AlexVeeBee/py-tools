@@ -1,100 +1,17 @@
 import os
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame,
-                             QComboBox, QPushButton, QFileDialog, QPlainTextEdit, QLineEdit)
+                             QComboBox, QPushButton, QFileDialog, QPlainTextEdit, 
+                             QLineEdit)
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
-from PyQt6.QtGui import QCursor
-from components.styles import C_DANGER, C_TEXT_MUTED, C_TEXT_MAIN, C_BORDER, C_BG_INPUT, C_PRIMARY
-from PyQt6.QtGui import QIcon
-from components.mime_parser import DragAndDropParser # Imported Plugin
+from PyQt6.QtGui import QCursor, QIcon, QPainter, QColor
 
-doeblockFileTypes = {
-    'txt': 'plaintext', 'md': 'Markdown', 'json': 'JSON', 'yaml': 'YAML', 'yml': 'YAML',
-    'csv': 'CSV', 'py': 'Python', 'js': 'JavaScript', 'ts': 'TypeScript', 'java': 'Java',
-    'cpp': 'C++', 'html': 'HTML', 'htm': 'HTML', 'css': 'CSS', 'vue': 'Vue',
-}
+from components.styles import C_BG_MAIN, C_DANGER, C_TEXT_MUTED, C_TEXT_MAIN, C_BORDER, C_BG_INPUT, C_PRIMARY
 
-# Helper for Droppable Line Edit
-class DroppableLineEdit(QLineEdit):
-    fileDropped = pyqtSignal(str)
-    
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setAcceptDrops(True)
-        self._original_style = ""
+# Import from siblings
+from .common import DroppableLineEdit
+from .generator import get_formatted_path, compile_prompt_data
+from .inject_helper import FileInjectHelper
 
-    def dragEnterEvent(self, e):
-        paths = DragAndDropParser.parse_paths(e.mimeData())
-        if paths:
-            e.accept()
-            self._original_style = self.styleSheet()
-            self.setStyleSheet(f"border: 2px dashed {C_PRIMARY}; background-color: {C_BG_INPUT};")
-        else:
-            super().dragEnterEvent(e)
-
-    def dragMoveEvent(self, e):
-        if DragAndDropParser.parse_paths(e.mimeData()):
-            e.accept()
-        else:
-            super().dragMoveEvent(e)
-
-    def dragLeaveEvent(self, e):
-        self.setStyleSheet(self._original_style)
-        super().dragLeaveEvent(e)
-
-    def dropEvent(self, e):
-        self.setStyleSheet(self._original_style)
-        paths = DragAndDropParser.parse_paths(e.mimeData())
-        if paths:
-            self.fileDropped.emit(paths[0])
-        else:
-            super().dropEvent(e)
-
-# --- Logic Helpers ---
-def get_formatted_path(target, mode, root):
-    if not target: return ""
-    if mode == "Name Only": return os.path.basename(target)
-    if mode == "Relative Path" and root and target.startswith(root):
-        try: return os.path.relpath(target, root)
-        except: pass
-    return target
-
-def generate_tree(root, ignore):
-    output = []
-    ignores = {x.strip() for x in ignore.split(',') if x.strip()}
-    def add(d, p=''):
-        try:
-            items = sorted([x for x in os.listdir(d) if x not in ignores and not x.startswith('.')])
-            ptrs = ['├── '] * (len(items)-1) + ['└── '] if items else []
-            for ptr, name in zip(ptrs, items):
-                output.append(f"{p}{ptr}{name}")
-                full = os.path.join(d, name)
-                if os.path.isdir(full): add(full, p + ('│   ' if ptr == '├── ' else '    '))
-        except: pass
-    if root: output.append(os.path.basename(root)+"/"); add(root)
-    return "\n".join(output)
-
-def get_codeblock_language(path):
-    ext = os.path.splitext(path)[1][1:].lower()
-    return doeblockFileTypes.get(ext, 'plaintext')
-
-def compile_prompt_data(data, root=""):
-    mode = data.get("type", "Message")
-    text = data.get("text", "").strip()
-    tgt = data.get("target_path", "")
-    out = f"{text}\n" if text else ""
-    if mode != "Message" and tgt and os.path.exists(tgt):
-        disp = get_formatted_path(tgt, data.get("path_mode"), root)
-        if mode == "File":
-            try: 
-                with open(tgt, 'r', encoding='utf-8', errors='ignore') as f:
-                    lang = get_codeblock_language(tgt)
-                    out += f"\nFile: {disp}\n```{lang}\n{f.read()}\n```\n"
-            except: out += f"[Error reading {disp}]\n"
-        elif mode == "Folder Tree":
-            out += f"\nDir: {disp}\n```\n{generate_tree(tgt, data.get('ignore_patterns',''))}\n```\n"
-    return out
-
-# --- Widget ---
 class PromptItemWidget(QWidget):
     contentChanged = pyqtSignal()
 
@@ -117,14 +34,13 @@ class PromptItemWidget(QWidget):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-        # 0. Header Tag (Outside Label)
-        # This sits above the content widget to look like a tab/header
-        self.lbl_header_tag = QLabel("")
+        # 0. Header Tag
+        self.lbl_header_tag = QLabel("</>")
         self.lbl_header_tag.setFixedHeight(20)
         self.lbl_header_tag.setStyleSheet(f"""
             QLabel {{
-                background-color: {C_PRIMARY}; 
-                color: #1a1a1a; 
+                background-color: {C_BG_MAIN}; 
+                color: {C_PRIMARY}; 
                 font-weight: bold; 
                 font-size: 11px;
                 padding: 2px 6px;
@@ -141,7 +57,6 @@ class PromptItemWidget(QWidget):
         content_layout = QHBoxLayout(self.content_widget)
         content_layout.setContentsMargins(4, 4, 4, 4)
         content_layout.setSpacing(6)
-        
         self.main_layout.addWidget(self.content_widget)
 
         # 1. Drag Handle
@@ -206,7 +121,7 @@ class PromptItemWidget(QWidget):
         # Row 2: Ignore
         self.ln_ignore = QLineEdit()
         self.ln_ignore.setPlaceholderText("Ignore: .git, node_modules, ...")
-        self.ln_ignore.setText("Ignore: .git, node_modules, __pycache__, .idea, .vscode, dist, build")
+        self.ln_ignore.setText(".git, node_modules, __pycache__, .idea, .vscode, dist, build")
         self.ln_ignore.textChanged.connect(self._emit)
         
         col_path.addLayout(row_p)
@@ -221,18 +136,39 @@ class PromptItemWidget(QWidget):
         self.btn_del = QPushButton()
         self.btn_del.setFixedSize(22, 22)
         self.btn_del.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.btn_del.setStyleSheet(f"background: transparent; border: 1px solid {C_DANGER}; color: {C_DANGER}; font-weight: bold;")
-        # Use a standard trash/delete icon if available, fallback to no icon
-        self.btn_del.setIcon(QIcon.fromTheme("edit-delete"))
+        self.btn_del.setStyleSheet(f"background: transparent; border: 1px solid {C_DANGER}; font-weight: bold;")
+        
+        icon = QIcon.fromTheme("edit-delete")
+        if not icon.isNull():
+            pixmap = icon.pixmap(16, 16)
+            painter = QPainter(pixmap)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+            painter.fillRect(pixmap.rect(), QColor(C_TEXT_MAIN))
+            painter.end()
+            self.btn_del.setIcon(QIcon(pixmap))
+            self.btn_del.setText("")
+        else:
+            self.btn_del.setText("X")
+            self.btn_del.setStyleSheet(f"background: transparent; border: 1px solid {C_DANGER}; color: {C_DANGER}; font-weight: bold;")
+
         self.btn_del.clicked.connect(self.remove_self)
         
         if read_only:
             self.btn_del.setVisible(False)
-            self._apply_read_only_mode()
         else:
             content_layout.addWidget(self.btn_del, alignment=Qt.AlignmentFlag.AlignTop)
 
-        # --- Resize Handle (Bottom Bar) ---
+        # --- Inject Helper ---
+        self.inject_helper = FileInjectHelper(
+            parent=self, 
+            path_getter=lambda: self.target_path, 
+            ignore_getter=lambda: self.ln_ignore.text()
+        )
+        self.inject_helper.filesChanged.connect(self._emit)
+        self.inject_helper.setVisible(False)
+        self.main_layout.addWidget(self.inject_helper)
+
+        # --- Resize Handle ---
         if not read_only:
             self.resize_handle = QFrame()
             self.resize_handle.setFixedHeight(6)
@@ -251,26 +187,22 @@ class PromptItemWidget(QWidget):
             self.resize_handle.mouseReleaseEvent = self.resize_mouse_release
             self.main_layout.addWidget(self.resize_handle)
 
+        if read_only:
+            self._apply_read_only_mode()
+
         self.on_type_changed("Message")
-        
-        # Set initial implicit height
         self.setMinimumHeight(60)
 
     # --- Resize Logic ---
     def get_ui_min_height(self):
-        """Calculates minimum height required by visible widgets so we don't crush them."""
-        # Baseline (handle + margins)
         base = 25 
-        
         mode = self.combo_type.currentText()
         if mode == "Message":
-            return base + 50 # Text area min
+            return base + 50 
         elif mode == "File":
-            # Header Tag (20) + Text area + File Input Row
             return base + 20 + 40 + 30 
         elif mode == "Folder Tree":
-            # Header Tag (20) + Text area + File Input + Ignore
-            return base + 20 + 40 + 30
+            return base + 20 + 40 + 30 + 35 
         return 80
 
     def resize_mouse_press(self, event):
@@ -278,43 +210,31 @@ class PromptItemWidget(QWidget):
             self.resizing = True
             self.drag_start_y = QCursor.pos().y()
             self.initial_height = self.parent_item.sizeHint().height()
-            
-            # If item was never sized, use current widget height
-            if self.initial_height <= 0:
-                self.initial_height = self.height()
-
-            # Ensure we don't shrink below the UI requirements
+            if self.initial_height <= 0: self.initial_height = self.height()
             self.drag_min_height = self.get_ui_min_height()
-            
             event.accept()
 
     def resize_mouse_move(self, event):
         if self.resizing:
             delta = QCursor.pos().y() - self.drag_start_y
             new_height = self.initial_height + delta
-            
-            if new_height < self.drag_min_height:
-                new_height = self.drag_min_height
-            
+            if new_height < self.drag_min_height: new_height = self.drag_min_height
             self.parent_item.setSizeHint(QSize(self.parent_item.sizeHint().width(), new_height))
             event.accept()
 
     def resize_mouse_release(self, event):
         self.resizing = False
         event.accept()
-        self._emit()
+        # BUG FIX: Removed self._emit() here. 
+        # Resizing view does not change generated content.
 
     def enforce_min_height(self):
-        """Ensures the item expands if the new type requires more space."""
         min_req = self.get_ui_min_height()
         current_h = self.parent_item.sizeHint().height()
-        
-        # If current height is less than what we need for this type, expand it.
-        # But if user has it larger (e.g. big text area), keep it larger.
         if current_h < min_req:
              self.parent_item.setSizeHint(QSize(self.parent_item.sizeHint().width(), min_req))
 
-    # --- Existing Logic ---
+    # --- Standard Widget Logic ---
     def _apply_read_only_mode(self):
         self.combo_type.setEnabled(False)
         self.combo_mode.setEnabled(False)
@@ -322,6 +242,8 @@ class PromptItemWidget(QWidget):
         self.ln_ignore.setReadOnly(True)
         self.ln_path.setAcceptDrops(False)
         self.btn_br.setVisible(False)
+        self.inject_helper.set_read_only(True)
+        
         style_disabled = f"color: {C_TEXT_MAIN}; background: {C_BG_INPUT}; border: none;"
         self.combo_type.setStyleSheet(style_disabled)
         self.combo_mode.setStyleSheet(style_disabled)
@@ -334,11 +256,11 @@ class PromptItemWidget(QWidget):
         is_msg = text == "Message"
         is_tree = text == "Folder Tree"
         
-        # Visibility
         self.w_path.setVisible(not is_msg)
         self.combo_mode.setVisible(not is_msg)
         self.ln_ignore.setVisible(is_tree)
-        self.lbl_header_tag.setVisible(not is_msg) # Show tag only for files/folders
+        self.lbl_header_tag.setVisible(not is_msg) 
+        self.inject_helper.setVisible(is_tree)
         
         if not self.read_only:
             self.txt_prompt.setPlaceholderText("// Enter instructions..." if is_msg else "// Context note...")
@@ -346,9 +268,8 @@ class PromptItemWidget(QWidget):
         if is_msg: 
             self.ln_path.clear() 
             self.target_path = ""
-            self.lbl_header_tag.setText("")
+            self.lbl_header_tag.setText("</>")
         
-        # Ensure height fits new controls
         self.enforce_min_height()
 
     def handle_drop(self, path):
@@ -369,18 +290,15 @@ class PromptItemWidget(QWidget):
             if d: self.handle_drop(d)
 
     def update_display(self):
-        # Update Input
         txt = get_formatted_path(self.target_path, self.combo_mode.currentText(), self.get_root())
         self.ln_path.setText(txt)
         
-        # Update Header Tag Name
         if self.target_path:
             name = os.path.basename(self.target_path)
-            self.lbl_header_tag.setText(f" {name} ")
+            self.lbl_header_tag.setText(f"{name}")
         else:
             self.lbl_header_tag.setText("")
         
-        # Validation visual
         if not self.read_only and self.target_path and not os.path.exists(self.target_path):
             self.ln_path.setStyleSheet(f"border: 1px solid {C_DANGER}; color: {C_DANGER};")
         else:
@@ -399,6 +317,7 @@ class PromptItemWidget(QWidget):
             "text": self.txt_prompt.toPlainText(),
             "target_path": self.target_path,
             "ignore_patterns": self.ln_ignore.text(),
+            "tree_inject_files": self.inject_helper.get_files(),
             "height": current_h if current_h > 0 else 80
         }
 
@@ -409,6 +328,7 @@ class PromptItemWidget(QWidget):
         self.txt_prompt.setPlainText(d.get("text", ""))
         self.ln_ignore.setText(d.get("ignore_patterns", ".git, node_modules, __pycache__, .idea, .vscode, dist, build"))
         self.target_path = d.get("target_path", "")
+        self.inject_helper.set_files(d.get("tree_inject_files", []))
         
         h = d.get("height", 0)
         if h > 50:
@@ -416,7 +336,6 @@ class PromptItemWidget(QWidget):
         
         self.update_display()
         self.blockSignals(False)
-        # Re-check height in case saved height is too small for current type logic
         self.enforce_min_height() 
 
     def get_compiled_output(self):

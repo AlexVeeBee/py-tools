@@ -6,8 +6,9 @@ from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton,
                              QSizePolicy)
 from PyQt6.QtCore import Qt, QSize
 from components.db_manager import DBManager
-from components.prompt_item import PromptItemWidget
-from components.db_selector import DBSelector  # <--- IMPORTED
+# --- UPDATED IMPORT ---
+from components.prompt import PromptItemWidget
+from components.db_selector import DBSelector 
 from components.styles import apply_class, C_PRIMARY
 
 class PromptStateDialog(QDialog):
@@ -24,9 +25,9 @@ class PromptStateDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
-        # --- 1. Header (Refactored) ---
+        # --- 1. Header ---
         self.db_selector = DBSelector()
-        self.db_selector.db_changed.connect(self.on_db_changed) # Connect signal
+        self.db_selector.db_changed.connect(self.on_db_changed)
         self.db_selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         layout.addWidget(self.db_selector)
 
@@ -110,7 +111,6 @@ class PromptStateDialog(QDialog):
             for row in prompts:
                 self.list_widget.addItem(f"{row['name']}")
         except Exception as e:
-            # Handle case where new DB isn't initialized or valid
             self.list_widget.addItem(f"Error reading DB")
             print(e)
 
@@ -147,6 +147,7 @@ class PromptStateDialog(QDialog):
 
         for item_data in items:
             list_item = QListWidgetItem(self.preview_list)
+            # Default height is updated dynamically by set_state
             list_item.setSizeHint(QSize(100, 105))
             
             widget = PromptItemWidget(

@@ -1,17 +1,20 @@
 from PyQt6.QtWidgets import QWidget
 
 # --- RETRO ORANGE PALETTE ---
-C_BG_MAIN    = "#120d03"  # --bg
-C_BG_SURFACE = "#1a1305"  # --header-bg
-C_BG_INPUT   = "#261b07"  # --button-bg (used for inputs/list items)
-C_BORDER     = "#44320D"  # --border
-C_PRIMARY    = "#ff9800"  # --primary
-C_SECONDARY  = "#e65100"  # --keyword (Deep Orange)
-C_TEXT_MAIN  = "#ffb74d"  # --text
-C_TEXT_ACTIVE= "#ffffff"  # --text-active
-C_TEXT_MUTED = "#7c5826"  # --line-number / comment
-C_DANGER     = "#bf360c"  # --error-color
-C_SCROLL     = "#ff9800"  # --scroll-thumb
+C_BG_MAIN    = "#120d03"            # --bg
+C_BG_SURFACE = "#1a1305"            # --header-bg
+C_BG_INPUT   = "#261b07"            # --button-bg (used for inputs/list items)
+C_BORDER     = "#44320D"            # --border
+C_PRIMARY    = "#ff9800"            # --primary
+C_SECONDARY  = "#e65100"            # --keyword (Deep Orange)
+C_TEXT_MAIN  = "#ffb74d"            # --text
+C_TEXT_ACTIVE= "#ffffff"            # --text-active
+C_TEXT_MUTED = "#7c5826"            # --line-number / comment
+C_DANGER     = "#bf360c"            # --error-color
+C_SCROLL     = "#ff9800"            # --scroll-thumb
+C_CHECKBOX_BG = "#261b07"           # --checkbox-bg (Matches Input)
+C_CHECKBOX_BORDER = "#7c5826"       # --checkbox-border (Muted Text color for visibility)
+C_SUCCESS    = "#388e3c"            # --success-color
 
 # --- COMPACT THEME STYLESHEET ---
 MAIN_THEME_DARK = f"""
@@ -89,14 +92,15 @@ MAIN_THEME_DARK = f"""
         background: {C_BG_SURFACE};
     }}
 
-    /* --- TABLES (DATABASE EDITOR) --- */
-    QTableView {{
-        background-color: {C_BG_MAIN};
-        alternate-background-color: {C_BG_SURFACE}; /* Fixes the blue rows */
+    /* --- TABLES & TREES --- */
+    QTableView, QTreeWidget, QTreeView {{
+        background-color: {C_BG_INPUT};
+        alternate-background-color: {C_BG_SURFACE};
         gridline-color: {C_BORDER};
         border: 1px solid {C_BORDER};
         selection-background-color: {C_PRIMARY};
         selection-color: {C_BG_MAIN};
+        outline: none;
     }}
 
     QHeaderView::section {{
@@ -114,6 +118,42 @@ MAIN_THEME_DARK = f"""
     QTableCornerButton::section {{
         background-color: {C_BG_SURFACE};
         border: 1px solid {C_BORDER};
+    }}
+
+    /* --- CHECKBOXES (FIXED) --- */
+    
+    QCheckBox {{
+        spacing: 6px;
+        color: {C_TEXT_MAIN};
+        background: transparent; /* Fixes blocky background on label */
+    }}
+
+    /* Style the actual box (indicator) for Checkboxes AND TreeViews */
+    QCheckBox::indicator, QTreeView::indicator {{
+        width: 14px;
+        height: 14px;
+        border: 1px solid {C_CHECKBOX_BORDER}; /* Muted orange border */
+        background-color: {C_BG_MAIN};         /* Dark background for contrast */
+        border-radius: 2px;
+    }}
+
+    /* Hover State */
+    QCheckBox::indicator:hover, QTreeView::indicator:hover {{
+        border: 1px solid {C_PRIMARY};
+        background-color: {C_BG_SURFACE};
+    }}
+
+    /* Checked State - Solid Orange Box */
+    QCheckBox::indicator:checked, QTreeView::indicator:checked {{
+        border: 1px solid {C_PRIMARY};
+        background-color: {C_PRIMARY}; /* Bright orange fill */
+        image: none;
+    }}
+    
+    /* Indeterminate State (if used) */
+    QCheckBox::indicator:indeterminate, QTreeView::indicator:indeterminate {{
+        border: 1px solid {C_PRIMARY};
+        background-color: {C_TEXT_MUTED};
     }}
 
     /* BUTTONS */
@@ -152,15 +192,14 @@ MAIN_THEME_DARK = f"""
         padding: 2px 5px;
         color: {C_TEXT_MAIN};
     }}
-    QComboBox::drop-down {{ border: none; background: {C_BG_INPUT}; }}
-    QComboBox::down-arrow {{ image: none; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid {C_PRIMARY}; margin-right: 5px; }}
+
     QComboBox QAbstractItemView {{
         background-color: {C_BG_SURFACE};
         border: 1px solid {C_BORDER};
         selection-background-color: {C_PRIMARY};
         selection-color: {C_BG_MAIN};
     }}
-
+    
     /* SPLITTER */
     QSplitter::handle {{ background: {C_BORDER}; }}
     QSplitter::handle:horizontal {{ width: 1px; }}

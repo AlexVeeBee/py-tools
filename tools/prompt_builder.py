@@ -7,12 +7,12 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton,
 from PyQt6.QtCore import Qt, QSize, pyqtSignal
 from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDragMoveEvent
 
-# Added DroppableLineEdit to imports
-from components.prompt_item import PromptItemWidget, DroppableLineEdit
+# --- UPDATED IMPORTS ---
+from components.prompt import PromptItemWidget, DroppableLineEdit
 from components.db_manager import DBManager
 from components.prompt_state_dialog import PromptStateDialog
-from components.styles import apply_class, C_PRIMARY, C_BG_MAIN, C_DANGER
-from components.mime_parser import DragAndDropParser  # Imported Plugin
+from components.styles import apply_class, C_PRIMARY, C_BG_MAIN, C_DANGER, C_TEXT_MUTED
+from components.mime_parser import DragAndDropParser
 
 # --- CUSTOM WIDGET: List with Absolute Drop Overlay ---
 class OverlayFileListWidget(QListWidget):
@@ -24,7 +24,7 @@ class OverlayFileListWidget(QListWidget):
         self.setDragDropMode(QAbstractItemView.DragDropMode.InternalMove)
         self.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
         
-        self.overlay = QLabel("DROP FILES HERE", self)
+        self.overlay = QLabel("DROP FILES OR FOLDERS HERE", self)
         self.overlay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         self.overlay.setStyleSheet(f"""
@@ -42,7 +42,6 @@ class OverlayFileListWidget(QListWidget):
         self.overlay.setGeometry(self.rect().adjusted(4, 4, -4, -4))
 
     def dragEnterEvent(self, event: QDragEnterEvent):
-        # Use Plugin
         if DragAndDropParser.parse_paths(event.mimeData()):
             event.accept()
             self.overlay.show()
@@ -51,7 +50,6 @@ class OverlayFileListWidget(QListWidget):
             super().dragEnterEvent(event)
 
     def dragMoveEvent(self, event: QDragMoveEvent):
-        # Use Plugin
         if DragAndDropParser.parse_paths(event.mimeData()):
             event.accept()
         else:
@@ -63,7 +61,6 @@ class OverlayFileListWidget(QListWidget):
 
     def dropEvent(self, event: QDropEvent):
         self.overlay.hide()
-        # Use Plugin
         paths = DragAndDropParser.parse_paths(event.mimeData())
         if paths:
             event.accept()
@@ -92,7 +89,6 @@ class PromptComposerTool(QWidget):
         lbl_root = QLabel("PROJECT ROOT:")
         apply_class(lbl_root, "text-primary font-bold")
         
-        # Use DroppableLineEdit for root so dragging folders works there too
         self.ln_root = DroppableLineEdit()
         self.ln_root.setPlaceholderText("/path/to/project/root")
         self.ln_root.textChanged.connect(self.mark_as_modified)
@@ -135,22 +131,19 @@ class PromptComposerTool(QWidget):
         preview_layout.setContentsMargins(0, 0, 0, 0)
         preview_layout.setSpacing(4)
         
-        # --- OUTDATED LABEL ---
         self.lbl_outdated = QLabel("⚠ PREVIEW OUTDATED - REGENERATE")
         self.lbl_outdated.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lbl_outdated.setStyleSheet(f"color: {C_DANGER}; font-weight: bold; font-size: 11px; margin-bottom: 2px;")
         self.lbl_outdated.setVisible(False)
         preview_layout.addWidget(self.lbl_outdated)
 
-        # --- OUTPUT TEXTBOX ---
         self.txt_result = QTextEdit()
         self.txt_result.setReadOnly(True)
         preview_layout.addWidget(self.txt_result)
 
-        # --- BOTTOM TOOLBAR (Buttons) ---
+        # --- BOTTOM TOOLBAR ---
         bottom_bar = QHBoxLayout()
         
-        # 1. Options Menu (Import/Export)
         self.btn_options = QPushButton(" OPTIONS ")
         self.options_menu = QMenu(self)
         
@@ -162,7 +155,6 @@ class PromptComposerTool(QWidget):
         
         self.btn_options.setMenu(self.options_menu)
 
-        # 2. Action Buttons
         self.btn_generate_copy = QPushButton("GENERATE & COPY")
         self.btn_generate_copy.clicked.connect(self.generate_and_copy)
         self.btn_generate_copy.setStyleSheet(f"background-color: {C_PRIMARY}; color: {C_BG_MAIN};")
@@ -173,6 +165,8 @@ class PromptComposerTool(QWidget):
         self.btn_copy = QPushButton("COPY")
         self.btn_copy.clicked.connect(self.copy_only)
 
+        self.label_chr_info = QLabel("Characters: 0")
+
         self.btn_actions = QWidget()
         actions_layout = QHBoxLayout(self.btn_actions)
         actions_layout.setContentsMargins(0, 0, 0, 0)
@@ -180,11 +174,11 @@ class PromptComposerTool(QWidget):
         actions_layout.addWidget(self.btn_generate_copy)
         actions_layout.addWidget(self.btn_generate)
         actions_layout.addWidget(self.btn_copy)
+        actions_layout.addWidget(self.label_chr_info)
 
-        # Assemble Bottom Bar
-        bottom_bar.addWidget(self.btn_actions) # left
-        bottom_bar.addStretch()                # Space
-        bottom_bar.addWidget(self.btn_options) # right
+        bottom_bar.addWidget(self.btn_actions)
+        bottom_bar.addStretch()
+        bottom_bar.addWidget(self.btn_options)
         
         preview_layout.addLayout(bottom_bar)
         
@@ -273,8 +267,8 @@ class PromptComposerTool(QWidget):
         else: items, root = data.get("items", []), data.get("project_root", "")
         self.ln_root.setText(root)
         self.list_widget.clear()
-        self.txt_result.clear() # Clear output on load
-        self.lbl_outdated.hide() # Reset outdated
+        self.txt_result.clear() 
+        self.lbl_outdated.hide() 
         for entry in items: self.add_item(entry)
 
     def set_modified(self, state=True):
@@ -283,7 +277,6 @@ class PromptComposerTool(QWidget):
     
     def mark_as_modified(self):
         if not self.is_modified: self.set_modified(True)
-        # Check for Outdated Status: Only if there is text already generated
         if self.txt_result.toPlainText().strip():
             self.lbl_outdated.setVisible(True)
 
@@ -303,7 +296,6 @@ class PromptComposerTool(QWidget):
 
     def add_item(self, data=None):
         item = QListWidgetItem(self.list_widget)
-        # Sizing: Implicitly handled by widget, but we set a default hint
         item.setSizeHint(QSize(100, 80)) 
         widget = PromptItemWidget(item, self.list_widget, self.get_project_root)
         widget.contentChanged.connect(self.mark_as_modified)
@@ -318,8 +310,6 @@ class PromptComposerTool(QWidget):
         self.current_save_name = None
         self.mark_as_modified()
 
-    # --- Generation Logic ---
-
     def generate_only(self):
         output = []
         for i in range(self.list_widget.count()):
@@ -327,12 +317,12 @@ class PromptComposerTool(QWidget):
             if widget: output.append(widget.get_compiled_output())
         res = "\n".join(output)
         self.txt_result.setText(res)
-        self.lbl_outdated.setVisible(False) # Content is now fresh
+        self.lbl_outdated.setVisible(False) 
         self.statusMessage.emit("Prompt generated!")
+        self.label_chr_info.setText(f"Characters: {len(res)}")
         return res
 
     def copy_only(self):
-        # Regenerate to ensure we are copying exact current state
         res = self.generate_only() 
         QApplication.clipboard().setText(res)
         self.statusMessage.emit("Prompt copied!")

@@ -111,6 +111,10 @@ class ToolCard(QFrame):
                 border: none;
                 background: transparent;
             }}
+            QLabel:hover {{
+                border: none;
+                background: transparent;
+            }}
         """)
 
         layout = QVBoxLayout(self)

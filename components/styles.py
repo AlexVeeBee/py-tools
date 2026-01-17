@@ -19,7 +19,7 @@ MAIN_THEME_DARK = f"""
     QWidget {{
         color: {C_TEXT_MAIN};
         background-color: {C_BG_MAIN};
-        font-family: 'Consolas', 'Segoe UI', monospace; /* Monospace fits the retro vibe */
+        font-family: 'Consolas', 'Segoe UI', monospace;
         font-size: 13px;
         outline: none;
     }}
@@ -89,13 +89,40 @@ MAIN_THEME_DARK = f"""
         background: {C_BG_SURFACE};
     }}
 
+    /* --- TABLES (DATABASE EDITOR) --- */
+    QTableView {{
+        background-color: {C_BG_MAIN};
+        alternate-background-color: {C_BG_SURFACE}; /* Fixes the blue rows */
+        gridline-color: {C_BORDER};
+        border: 1px solid {C_BORDER};
+        selection-background-color: {C_PRIMARY};
+        selection-color: {C_BG_MAIN};
+    }}
+
+    QHeaderView::section {{
+        background-color: {C_BG_SURFACE};
+        color: {C_TEXT_MAIN};
+        padding: 4px;
+        border: 1px solid {C_BORDER};
+        font-weight: bold;
+    }}
+
+    QHeaderView::section:horizontal {{
+        border-bottom: 2px solid {C_BORDER};
+    }}
+
+    QTableCornerButton::section {{
+        background-color: {C_BG_SURFACE};
+        border: 1px solid {C_BORDER};
+    }}
+
     /* BUTTONS */
     QPushButton {{
         background-color: {C_BG_INPUT};
         color: {C_TEXT_MAIN};
         border: 1px solid {C_BORDER};
         padding: 4px 12px;
-        border-radius: 0px; /* Square buttons for retro feel */
+        border-radius: 0px; 
         font-weight: bold;
     }}
     

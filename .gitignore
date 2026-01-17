@@ -3,4 +3,7 @@ __pycache__/
 *.db
 *.sqlite3
 env/
-venv/
+venv/# pixi environments
+.pixi/
+.pixi/*
+!.pixi/config.toml

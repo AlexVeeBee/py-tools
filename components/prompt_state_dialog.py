@@ -2,11 +2,12 @@ import os
 import json
 from PyQt6.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QPushButton, 
                              QListWidget, QLabel, QLineEdit, QListWidgetItem,
-                             QSplitter, QDialogButtonBox, QFileDialog, QMessageBox, QWidget,
+                             QSplitter, QDialogButtonBox, QMessageBox, QWidget,
                              QSizePolicy)
 from PyQt6.QtCore import Qt, QSize
 from components.db_manager import DBManager
 from components.prompt_item import PromptItemWidget
+from components.db_selector import DBSelector  # <--- IMPORTED
 from components.styles import apply_class, C_PRIMARY
 
 class PromptStateDialog(QDialog):
@@ -23,19 +24,11 @@ class PromptStateDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.setSpacing(10)
 
-        # --- 1. Header ---
-        header = QHBoxLayout()
-        self.lbl_db = QLabel(f"DATABASE: {os.path.basename(DBManager.get_db_path())}")
-        apply_class(self.lbl_db, "text-primary font-bold")
-        
-        btn_switch_db = QPushButton("SWITCH DB")
-        btn_switch_db.setFixedWidth(100)
-        btn_switch_db.clicked.connect(self.change_database)
-        
-        header.addWidget(self.lbl_db)
-        header.addStretch()
-        header.addWidget(btn_switch_db)
-        layout.addLayout(header)
+        # --- 1. Header (Refactored) ---
+        self.db_selector = DBSelector()
+        self.db_selector.db_changed.connect(self.on_db_changed) # Connect signal
+        self.db_selector.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        layout.addWidget(self.db_selector)
 
         # --- 2. Central Area ---
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -60,7 +53,7 @@ class PromptStateDialog(QDialog):
         prev_layout.addWidget(lbl_preview)
         
         self.preview_list = QListWidget()
-        self.preview_list.setSelectionMode(QListWidget.SelectionMode.NoSelection) # No selecting preview items
+        self.preview_list.setSelectionMode(QListWidget.SelectionMode.NoSelection)
         prev_layout.addWidget(self.preview_list)
 
         splitter.addWidget(list_container)
@@ -75,7 +68,6 @@ class PromptStateDialog(QDialog):
         # Save Name Input
         self.ln_name = QLineEdit()
         self.ln_name.setPlaceholderText("ENTER PROMPT NAME...")
-        # FIX: Prevent vertical stretching
         self.ln_name.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.ln_name.setFixedHeight(30) 
 
@@ -106,19 +98,21 @@ class PromptStateDialog(QDialog):
 
         self.refresh_list()
 
-    def change_database(self):
-        fname, _ = QFileDialog.getOpenFileName(self, "Select Database", "", "SQLite Files (*.db);;All Files (*)")
-        if fname:
-            DBManager.set_db_path(fname)
-            self.lbl_db.setText(f"DATABASE: {os.path.basename(fname)}")
-            self.refresh_list()
-            self.preview_list.clear()
+    def on_db_changed(self, new_path):
+        """Called when DBSelector changes the database"""
+        self.refresh_list()
+        self.preview_list.clear()
 
     def refresh_list(self):
         self.list_widget.clear()
-        prompts = DBManager.get_all_prompts()
-        for row in prompts:
-            self.list_widget.addItem(f"{row['name']}")
+        try:
+            prompts = DBManager.get_all_prompts()
+            for row in prompts:
+                self.list_widget.addItem(f"{row['name']}")
+        except Exception as e:
+            # Handle case where new DB isn't initialized or valid
+            self.list_widget.addItem(f"Error reading DB")
+            print(e)
 
     def on_selection_change(self):
         item = self.list_widget.currentItem()
@@ -127,7 +121,8 @@ class PromptStateDialog(QDialog):
             return
             
         name = item.text()
-        
+        if name == "Error reading DB": return
+
         if self.mode == "save":
             self.ln_name.setText(name)
             
@@ -136,14 +131,12 @@ class PromptStateDialog(QDialog):
         self.populate_preview(data)
 
     def populate_preview(self, data):
-        """Creates read-only prompt items for the preview list."""
         self.preview_list.clear()
         if not data: return
         
         root_path = data.get("project_root", "")
         items = data.get("items", [])
         
-        # Add a header item for Project Root info (optional visual aid)
         if root_path:
             lbl = QLabel(f"PROJECT ROOT: {root_path}")
             lbl.setStyleSheet("color: #7c5826; font-style: italic; padding: 5px;")
@@ -153,15 +146,13 @@ class PromptStateDialog(QDialog):
             self.preview_list.setItemWidget(item, lbl)
 
         for item_data in items:
-            # Create list item container
             list_item = QListWidgetItem(self.preview_list)
             list_item.setSizeHint(QSize(100, 105))
             
-            # Create Widget in Read Only Mode
             widget = PromptItemWidget(
                 parent_item=list_item, 
                 list_widget=self.preview_list, 
-                root_getter=lambda: root_path, # Lambda returns fixed root string
+                root_getter=lambda: root_path,
                 read_only=True
             )
             widget.set_state(item_data)
@@ -175,8 +166,8 @@ class PromptStateDialog(QDialog):
     def validate_and_accept(self):
         if self.mode == "load":
             item = self.list_widget.currentItem()
-            if not item:
-                QMessageBox.warning(self, "Selection Required", "Please select a prompt to load.")
+            if not item or item.text() == "Error reading DB":
+                QMessageBox.warning(self, "Selection Required", "Please select a valid prompt to load.")
                 return
             self.selected_name = item.text()
             self.accept()

@@ -1,5 +1,6 @@
 import traceback
 import sys
+# Note: specific tools are imported later or lazily to allow dependency checking
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, 
                              QWidget, QHBoxLayout, QStyle, QMenu, QLabel, QMessageBox)
 from PyQt6.QtGui import QAction, QKeySequence, QCloseEvent
@@ -9,7 +10,12 @@ from PyQt6.QtCore import Qt
 from components.styles import MAIN_THEME_DARK
 from components.placeholder import PlaceholderWidget
 from components.db_manager import DBManager
+from components.dep_checker import DependencyChecker 
+
+# Tools (Standard)
 from tools.prompt_builder import PromptComposerTool
+from tools.db_editor import DatabaseEditorTool
+# REMOVED: from tools.audio_viz import AudioVisualizerTool (Moved inside class)
 
 class AppShell(QMainWindow):
     def __init__(self):
@@ -47,10 +53,22 @@ class AppShell(QMainWindow):
         file_menu.addAction(exit_action)
 
         tools_menu = menubar.addMenu("TOOLS")
+        
+        # Prompt Builder Tool
         act_prompts = QAction("Prompt Builder", self)
-        # We use a wrapper to catch errors during tool instantiation
         act_prompts.triggered.connect(lambda: self.safe_launch_tool(PromptComposerTool, "PROMPT BUILDER"))
         tools_menu.addAction(act_prompts)
+
+        # DB Editor Tool
+        act_db = QAction("Database Editor", self)
+        act_db.triggered.connect(lambda: self.safe_launch_tool(DatabaseEditorTool, "DB EDITOR"))
+        tools_menu.addAction(act_db)
+
+        # Audio Viz Tool
+        act_viz = QAction("Audio Visualizer", self)
+        # We connect to a specific method instead of a lambda with the class directly
+        act_viz.triggered.connect(self.launch_audio_viz) 
+        tools_menu.addAction(act_viz)
 
         # --- CENTRAL ---
         central_widget = QWidget()
@@ -66,11 +84,24 @@ class AppShell(QMainWindow):
         
         self.add_home_tab()
 
+    def launch_audio_viz(self):
+        """
+        Lazy load the Audio Tool. 
+        This ensures main.py doesn't crash on startup if libraries are missing.
+        """
+        try:
+            # Import here so it happens AFTER the Dependency Check in main
+            from tools.audio_viz import AudioVisualizerTool 
+            self.safe_launch_tool(AudioVisualizerTool, "AUDIO VIZ")
+        except ImportError as e:
+            QMessageBox.critical(self, "Dependency Missing", 
+                                 f"Could not load Audio Visualizer.\n\n"
+                                 f"Please ensure you have installed requirements:\n{str(e)}")
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Error", str(e))
+
     def safe_launch_tool(self, tool_class, title):
-        """
-        Safely instantiates a tool widget and adds it to a tab.
-        Catches errors during the __init__ of the tool.
-        """
         try:
             widget = tool_class()
             self.add_tab(widget, title)
@@ -83,7 +114,6 @@ class AppShell(QMainWindow):
             index = self.tabs.addTab(widget, title)
             self.tabs.setCurrentIndex(index)
             
-            # Connect signals if they exist
             if hasattr(widget, 'statusMessage'):
                 widget.statusMessage.connect(self.status_label.setText)
             if hasattr(widget, 'modificationChanged'):
@@ -91,7 +121,6 @@ class AppShell(QMainWindow):
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(self, "Tab Error", f"Failed to add tab:\n{str(e)}")
-            # Attempt to clean up widget if adding failed
             if widget:
                 widget.deleteLater()
 
@@ -102,7 +131,7 @@ class AppShell(QMainWindow):
             txt = self.tabs.tabText(index).replace(" *", "")
             self.tabs.setTabText(index, f"{txt} *" if is_modified else txt)
         except Exception:
-            pass # benign error, mostly UI glitch
+            pass 
 
     def trigger_save(self):
         try:
@@ -136,20 +165,28 @@ class AppShell(QMainWindow):
         except Exception:
             pass
 
-    def close_tab(self, index):
+    def close_tab(self, index): 
         try:
             widget = self.tabs.widget(index)
             if not widget: return
 
-            # Check for unsaved changes before closing
             if hasattr(widget, 'handle_unsaved_changes'):
                 if not widget.handle_unsaved_changes():
-                    return # User cancelled
+                    return 
+
+            conn_name_to_remove = None
+            if hasattr(widget, 'cleanup'):
+                widget.cleanup()
+                if hasattr(widget, 'db_conn_name'):
+                    conn_name_to_remove = widget.db_conn_name
 
             self.tabs.removeTab(index)
             widget.deleteLater()
             
-            # If all tabs closed, show home
+            if conn_name_to_remove:
+                from PyQt6.QtSql import QSqlDatabase
+                QSqlDatabase.removeDatabase(conn_name_to_remove)
+
             if self.tabs.count() == 0:
                 self.add_home_tab()
         except Exception as e:
@@ -157,23 +194,18 @@ class AppShell(QMainWindow):
             QMessageBox.critical(self, "Close Error", f"An error occurred while closing the tab:\n{str(e)}")
 
     def closeEvent(self, event: QCloseEvent):
-        """Intercepts app closing to check all tabs."""
         try:
             for i in range(self.tabs.count()):
                 widget = self.tabs.widget(i)
-                # Switch to the tab being checked so user sees it
                 self.tabs.setCurrentIndex(i)
                 
                 if hasattr(widget, 'handle_unsaved_changes'):
                     if not widget.handle_unsaved_changes():
                         event.ignore()
                         return
-            
             event.accept()
         except Exception as e:
             traceback.print_exc()
-            # In a close event, if something crashes, we usually want to force close
-            # to prevent the app from getting stuck open.
             reply = QMessageBox.question(self, "Error on Exit", 
                                          f"An error occurred while closing:\n{str(e)}\n\nForce close?",
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
@@ -184,9 +216,24 @@ class AppShell(QMainWindow):
 
 if __name__ == "__main__":
     try:
+        # 1. Initialize Application
         app = QApplication(sys.argv)
         app.setStyle("Fusion") 
         app.setStyleSheet(MAIN_THEME_DARK)
+
+        # 2. Check Dependencies 
+        # LOGIC CHANGE: We skip the check if we detect we are running in Pixi
+        # Pixi sets the 'PIXI_PROJECT_MANIFEST' environment variable.
+        import os
+        if "PIXI_PROJECT_MANIFEST" not in os.environ:
+            try:
+                DependencyChecker.check(None, "requirements.txt")
+            except Exception:
+                pass
+        else:
+            print("Running in Pixi environment: Dependency check skipped.")
+
+        # 3. Launch Window
         window = AppShell()
         window.show()
         sys.exit(app.exec())

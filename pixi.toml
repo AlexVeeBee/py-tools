@@ -1,0 +1,18 @@
+[workspace]
+name = "prompt_builder"
+version = "0.1.0"
+description = "Prompt Builder"
+authors = [""]
+channels = ["conda-forge"]
+platforms = ["win-64"] # Assuming you are on Windows
+
+[tasks]
+start = "python main.py"
+
+[dependencies]
+python = "3.11.*"
+numpy = "*"
+pyqt6 = "*"
+
+[pypi-dependencies]
+pyaudiowpatch = "*"

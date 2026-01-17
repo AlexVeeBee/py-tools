@@ -153,23 +153,25 @@ class PromptComposerTool(QWidget):
         self.btn_options.setMenu(self.options_menu)
 
         # 2. Action Buttons
-        self.btn_generate_copy = QPushButton(" GEN & COPY ")
-        self.btn_generate_copy.clicked.connect(self.generate_and_copy)
-        apply_class(self.btn_generate_copy, "font-bold")
+        self.btn_actions = QPushButton(" GENERATE ")
+        self.actions_menu = QMenu(self)
 
-        self.btn_generate = QPushButton(" GEN ONLY ")
-        self.btn_generate.clicked.connect(self.generate_only)
+        act_generate_copy = self.actions_menu.addAction("Generate & Copy")
+        act_generate_copy.triggered.connect(self.generate_and_copy)
 
-        self.btn_copy = QPushButton(" COPY ONLY ")
-        self.btn_copy.clicked.connect(self.copy_only)
+        act_generate = self.actions_menu.addAction("Generate Only")
+        act_generate.triggered.connect(self.generate_only)
+
+        act_copy = self.actions_menu.addAction("Copy Only")
+        act_copy.triggered.connect(self.copy_only)
+
+        self.btn_actions.setMenu(self.actions_menu)
 
         # Layout Assembly
         p_bar.addWidget(p_lbl)
         p_bar.addStretch()
         p_bar.addWidget(self.btn_options)         # Context Menu Button
-        p_bar.addWidget(self.btn_generate_copy)   # Priority 1
-        p_bar.addWidget(self.btn_generate)        # Priority 2
-        p_bar.addWidget(self.btn_copy)            # Priority 3
+        p_bar.addWidget(self.btn_actions)         # Actions Menu Button
         
         self.txt_result = QTextEdit()
         self.txt_result.setReadOnly(True)

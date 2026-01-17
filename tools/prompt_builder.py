@@ -11,7 +11,7 @@ from PyQt6.QtGui import QDragEnterEvent, QDropEvent, QDragMoveEvent
 from components.prompt_item import PromptItemWidget, DroppableLineEdit
 from components.db_manager import DBManager
 from components.prompt_state_dialog import PromptStateDialog
-from components.styles import apply_class, C_PRIMARY
+from components.styles import apply_class, C_PRIMARY, C_BG_MAIN, C_DANGER
 from components.mime_parser import DragAndDropParser  # Imported Plugin
 
 # --- CUSTOM WIDGET: List with Absolute Drop Overlay ---
@@ -135,10 +135,20 @@ class PromptComposerTool(QWidget):
         preview_layout.setContentsMargins(0, 0, 0, 0)
         preview_layout.setSpacing(4)
         
-        # --- PREVIEW TOOLBAR ---
-        p_bar = QHBoxLayout()
-        p_lbl = QLabel("> COMPILED OUTPUT")
-        apply_class(p_lbl, "text-primary font-bold")
+        # --- OUTDATED LABEL ---
+        self.lbl_outdated = QLabel("⚠ PREVIEW OUTDATED - REGENERATE")
+        self.lbl_outdated.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lbl_outdated.setStyleSheet(f"color: {C_DANGER}; font-weight: bold; font-size: 11px; margin-bottom: 2px;")
+        self.lbl_outdated.setVisible(False)
+        preview_layout.addWidget(self.lbl_outdated)
+
+        # --- OUTPUT TEXTBOX ---
+        self.txt_result = QTextEdit()
+        self.txt_result.setReadOnly(True)
+        preview_layout.addWidget(self.txt_result)
+
+        # --- BOTTOM TOOLBAR (Buttons) ---
+        bottom_bar = QHBoxLayout()
         
         # 1. Options Menu (Import/Export)
         self.btn_options = QPushButton(" OPTIONS ")
@@ -153,31 +163,30 @@ class PromptComposerTool(QWidget):
         self.btn_options.setMenu(self.options_menu)
 
         # 2. Action Buttons
-        self.btn_actions = QPushButton(" GENERATE ")
-        self.actions_menu = QMenu(self)
+        self.btn_generate_copy = QPushButton("GENERATE & COPY")
+        self.btn_generate_copy.clicked.connect(self.generate_and_copy)
+        self.btn_generate_copy.setStyleSheet(f"background-color: {C_PRIMARY}; color: {C_BG_MAIN};")
 
-        act_generate_copy = self.actions_menu.addAction("Generate & Copy")
-        act_generate_copy.triggered.connect(self.generate_and_copy)
+        self.btn_generate = QPushButton("GENERATE")
+        self.btn_generate.clicked.connect(self.generate_only)
 
-        act_generate = self.actions_menu.addAction("Generate Only")
-        act_generate.triggered.connect(self.generate_only)
+        self.btn_copy = QPushButton("COPY")
+        self.btn_copy.clicked.connect(self.copy_only)
 
-        act_copy = self.actions_menu.addAction("Copy Only")
-        act_copy.triggered.connect(self.copy_only)
+        self.btn_actions = QWidget()
+        actions_layout = QHBoxLayout(self.btn_actions)
+        actions_layout.setContentsMargins(0, 0, 0, 0)
+        actions_layout.setSpacing(5)
+        actions_layout.addWidget(self.btn_generate_copy)
+        actions_layout.addWidget(self.btn_generate)
+        actions_layout.addWidget(self.btn_copy)
 
-        self.btn_actions.setMenu(self.actions_menu)
-
-        # Layout Assembly
-        p_bar.addWidget(p_lbl)
-        p_bar.addStretch()
-        p_bar.addWidget(self.btn_options)         # Context Menu Button
-        p_bar.addWidget(self.btn_actions)         # Actions Menu Button
+        # Assemble Bottom Bar
+        bottom_bar.addWidget(self.btn_actions) # left
+        bottom_bar.addStretch()                # Space
+        bottom_bar.addWidget(self.btn_options) # right
         
-        self.txt_result = QTextEdit()
-        self.txt_result.setReadOnly(True)
-        
-        preview_layout.addLayout(p_bar)
-        preview_layout.addWidget(self.txt_result)
+        preview_layout.addLayout(bottom_bar)
         
         splitter.addWidget(preview_widget)
         splitter.setSizes([500, 200]) 
@@ -264,6 +273,8 @@ class PromptComposerTool(QWidget):
         else: items, root = data.get("items", []), data.get("project_root", "")
         self.ln_root.setText(root)
         self.list_widget.clear()
+        self.txt_result.clear() # Clear output on load
+        self.lbl_outdated.hide() # Reset outdated
         for entry in items: self.add_item(entry)
 
     def set_modified(self, state=True):
@@ -272,14 +283,15 @@ class PromptComposerTool(QWidget):
     
     def mark_as_modified(self):
         if not self.is_modified: self.set_modified(True)
+        # Check for Outdated Status: Only if there is text already generated
+        if self.txt_result.toPlainText().strip():
+            self.lbl_outdated.setVisible(True)
 
     def get_project_root(self): return self.ln_root.text().strip()
     
     def browse_root(self):
         d = QFileDialog.getExistingDirectory(self, "Select Project Root")
         if d:
-            # Manually fix slashes here too, because QFileDialog often returns '/' even on Windows.
-            # This ensures it matches the format produced by DragAndDropParser so 'startswith' checks pass.
             if os.name == 'nt':
                 d = d.replace("/", "\\")
             self.ln_root.setText(d)
@@ -291,7 +303,8 @@ class PromptComposerTool(QWidget):
 
     def add_item(self, data=None):
         item = QListWidgetItem(self.list_widget)
-        item.setSizeHint(QSize(100, 105)) 
+        # Sizing: Implicitly handled by widget, but we set a default hint
+        item.setSizeHint(QSize(100, 80)) 
         widget = PromptItemWidget(item, self.list_widget, self.get_project_root)
         widget.contentChanged.connect(self.mark_as_modified)
         self.list_widget.setItemWidget(item, widget)
@@ -301,6 +314,7 @@ class PromptComposerTool(QWidget):
     def clear_all(self):
         self.list_widget.clear()
         self.txt_result.clear()
+        self.lbl_outdated.hide()
         self.current_save_name = None
         self.mark_as_modified()
 
@@ -313,6 +327,7 @@ class PromptComposerTool(QWidget):
             if widget: output.append(widget.get_compiled_output())
         res = "\n".join(output)
         self.txt_result.setText(res)
+        self.lbl_outdated.setVisible(False) # Content is now fresh
         self.statusMessage.emit("Prompt generated!")
         return res
 

@@ -1,17 +1,17 @@
 from PyQt6.QtWidgets import QWidget
 
 # --- RETRO ORANGE PALETTE ---
-C_BG_MAIN    = "#120d03"  # --bg
-C_BG_SURFACE = "#1a1305"  # --header-bg
-C_BG_INPUT   = "#261b07"  # --button-bg (used for inputs/list items)
-C_BORDER     = "#44320D"  # --border
-C_PRIMARY    = "#ff9800"  # --primary
-C_SECONDARY  = "#e65100"  # --keyword (Deep Orange)
-C_TEXT_MAIN  = "#ffb74d"  # --text
+C_BG_MAIN    = "#23272e"  # --bg (Slate Blue)
+C_BG_SURFACE = "#2c313c"  # --header-bg (Dark Slate)
+C_BG_INPUT   = "#3c4250"  # --button-bg (used for inputs/list items)
+C_BORDER     = "#4b5363"  # --border (Muted Blue-Gray)
+C_PRIMARY    = "#4f8cff"  # --primary (Bright Blue)
+C_SECONDARY  = "#1abc9c"  # --keyword (Teal)
+C_TEXT_MAIN  = "#eaf6fb"  # --text (Very Light Blue)
 C_TEXT_ACTIVE= "#ffffff"  # --text-active
-C_TEXT_MUTED = "#7c5826"  # --line-number / comment
-C_DANGER     = "#bf360c"  # --error-color
-C_SCROLL     = "#ff9800"  # --scroll-thumb
+C_TEXT_MUTED = "#7a869a"  # --line-number / comment (Muted Gray)
+C_DANGER     = "#e74c3c"  # --error-color (Red)
+C_SCROLL     = "#4f8cff"  # --scroll-thumb (Bright Blue)
 
 # --- COMPACT THEME STYLESHEET ---
 MAIN_THEME_DARK = f"""

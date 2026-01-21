@@ -26,7 +26,6 @@ class TreeSelectionDialog(QDialog):
 
         self.tree = QTreeWidget()
         self.tree.setHeaderLabel("Project Files")
-        self.tree.setStyleSheet(f"background-color: {C_BG_INPUT}; border: 1px solid {C_BORDER};")
         layout.addWidget(self.tree)
 
         btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -91,7 +90,7 @@ class TreeSelectionDialog(QDialog):
                 painter.end()
                 item.setIcon(0, QIcon(pixmap))
             
-            # Recursion (Fixed duplicate call)
+            # Recursion
             self._add_children(item, full_path)
 
         # 4. Add Files Second
@@ -99,8 +98,13 @@ class TreeSelectionDialog(QDialog):
             item = QTreeWidgetItem(parent_item)
             item.setText(0, name)
             item.setData(0, Qt.ItemDataRole.UserRole, full_path)
+            
+            # Make item checkable
             item.setFlags(item.flags() | Qt.ItemFlag.ItemIsUserCheckable)
-            item.setCheckState(0, Qt.CheckState.Checked if full_path in self.current_selection else Qt.CheckState.Unchecked)
+            
+            # Set Check State
+            state = Qt.CheckState.Checked if full_path in self.current_selection else Qt.CheckState.Unchecked
+            item.setCheckState(0, state)
 
     def get_selected_files(self):
         selected = []

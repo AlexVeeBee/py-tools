@@ -1,5 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame, QSizePolicy, QScrollArea, QLayout)
+                             QPushButton, QFrame, QSizePolicy, QScrollArea, QLayout,
+                             QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QSize, QRect, QPoint
 from PyQt6.QtGui import QIcon, QPainter, QColor
 

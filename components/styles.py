@@ -1,20 +1,25 @@
 from PyQt6.QtWidgets import QWidget
 
 # --- RETRO ORANGE PALETTE ---
-C_BG_MAIN    = "#120d03"            # --bg
-C_BG_SURFACE = "#1a1305"            # --header-bg
-C_BG_INPUT   = "#261b07"            # --button-bg (used for inputs/list items)
-C_BORDER     = "#44320D"            # --border
-C_PRIMARY    = "#ff9800"            # --primary
-C_SECONDARY  = "#e65100"            # --keyword (Deep Orange)
-C_TEXT_MAIN  = "#ffb74d"            # --text
-C_TEXT_ACTIVE= "#ffffff"            # --text-active
-C_TEXT_MUTED = "#7c5826"            # --line-number / comment
-C_DANGER     = "#bf360c"            # --error-color
-C_SCROLL     = "#ff9800"            # --scroll-thumb
-C_CHECKBOX_BG = "#261b07"           # --checkbox-bg (Matches Input)
-C_CHECKBOX_BORDER = "#7c5826"       # --checkbox-border (Muted Text color for visibility)
-C_SUCCESS    = "#388e3c"            # --success-color
+C_BG_MAIN           = "#120d03"            # --bg
+C_BG_SECONDARY      = "#1e1406"            # --sidebar-bg
+C_BG_SURFACE        = "#1a1305"            # --header-bg
+C_BG_INPUT          = "#261b07"            # --button-bg (used for inputs/list items)
+C_BORDER            = "#44320D"            # --border
+C_PRIMARY           = "#ff9800"            # --primary
+C_SECONDARY         = "#e65100"            # --keyword (Deep Orange)
+C_TEXT_MAIN         = "#ffb74d"            # --text
+C_TEXT_ACTIVE       = "#ffffff"            # --text-active
+C_TEXT_MUTED        = "#7c5826"            # --line-number / comment
+C_DANGER            = "#bf360c"            # --error-color
+C_SCROLL            = "#ff9800"            # --scroll-thumb
+C_CHECKBOX_BG       = "#261b07"            # --checkbox-bg (Matches Input)
+C_CHECKBOX_BORDER   = "#7c5826"            # --checkbox-border (Muted Text color for visibility)
+C_SUCCESS           = "#388e3c"            # --success-color
+
+# High Contrast Checkmark SVG (Dark Tick on Transparent -> will sit on Orange BG)
+# Stroke is #120d03 (C_BG_MAIN) to look like a cutout against the #ff9800 (Orange) background
+SVG_CHECKMARK = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAwAAAAMCAYAAABWdVznAAAACXBIWXMAAAsTAAALEwEAmpwYAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAABnSURBVHgBtZHRDYAwCESpcRfGFMdkmgqJmBPR9sdL2gDhHiUl+kOq2v14vEw0b5gPDSaZNiS6+NUGhh4xM7fPCRX9mgAkMdL+RnetCSzWSLmGSYPxQoWQTrHD+YzK8Kjd3PmTYh/UAUGxLEbrn+LDAAAAAElFTkSuQmCC"
 
 # --- COMPACT THEME STYLESHEET ---
 MAIN_THEME_DARK = f"""
@@ -120,40 +125,12 @@ MAIN_THEME_DARK = f"""
         border: 1px solid {C_BORDER};
     }}
 
-    /* --- CHECKBOXES (FIXED) --- */
+    /* --- CHECKBOXES & TREE INDICATORS --- */
     
     QCheckBox {{
         spacing: 6px;
         color: {C_TEXT_MAIN};
-        background: transparent; /* Fixes blocky background on label */
-    }}
-
-    /* Style the actual box (indicator) for Checkboxes AND TreeViews */
-    QCheckBox::indicator, QTreeView::indicator {{
-        width: 14px;
-        height: 14px;
-        border: 1px solid {C_CHECKBOX_BORDER}; /* Muted orange border */
-        background-color: {C_BG_MAIN};         /* Dark background for contrast */
-        border-radius: 2px;
-    }}
-
-    /* Hover State */
-    QCheckBox::indicator:hover, QTreeView::indicator:hover {{
-        border: 1px solid {C_PRIMARY};
-        background-color: {C_BG_SURFACE};
-    }}
-
-    /* Checked State - Solid Orange Box */
-    QCheckBox::indicator:checked, QTreeView::indicator:checked {{
-        border: 1px solid {C_PRIMARY};
-        background-color: {C_PRIMARY}; /* Bright orange fill */
-        image: none;
-    }}
-    
-    /* Indeterminate State (if used) */
-    QCheckBox::indicator:indeterminate, QTreeView::indicator:indeterminate {{
-        border: 1px solid {C_PRIMARY};
-        background-color: {C_TEXT_MUTED};
+        background: transparent;
     }}
 
     /* BUTTONS */

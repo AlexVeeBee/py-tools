@@ -1,0 +1,54 @@
+{
+  "project_root": "E:\\Scripts\\PY\\prompt_builder\\components",
+  "settings": {
+    "include_tree": true,
+    "global_ignore": ".git, __pycache__, node_modules, .idea, .vscode, .venv, dist, build, __pypackages__/, __pycache__/, *.db, *.sqlite3, env/, venv/, .pixi/, .pixi/*, !.pixi/config.toml, __pypackages__, env, venv, .pixi"
+  },
+  "items": [
+    {
+      "type": "Message",
+      "path_mode": "Name Only",
+      "text": "",
+      "target_path": "",
+      "ignore_patterns": ".git, node_modules, __pycache__, .idea, .vscode, dist, build",
+      "tree_inject_files": [],
+      "height": 75
+    },
+    {
+      "type": "Message",
+      "path_mode": "Name Only",
+      "text": "",
+      "target_path": "",
+      "ignore_patterns": ".git, node_modules, __pycache__, .idea, .vscode, dist, build",
+      "tree_inject_files": [],
+      "height": 115
+    },
+    {
+      "type": "File",
+      "path_mode": "Name Only",
+      "text": "",
+      "target_path": "",
+      "ignore_patterns": ".git, node_modules, __pycache__, .idea, .vscode, dist, build",
+      "tree_inject_files": [],
+      "height": 115
+    },
+    {
+      "type": "File",
+      "path_mode": "Name Only",
+      "text": "",
+      "target_path": "",
+      "ignore_patterns": ".git, node_modules, __pycache__, .idea, .vscode, dist, build",
+      "tree_inject_files": [],
+      "height": 115
+    },
+    {
+      "type": "File",
+      "path_mode": "Name Only",
+      "text": "",
+      "target_path": "",
+      "ignore_patterns": ".git, node_modules, __pycache__, .idea, .vscode, dist, build",
+      "tree_inject_files": [],
+      "height": 115
+    }
+  ]
+}

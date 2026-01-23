@@ -29,6 +29,10 @@ def get_codeblock_language(path):
     return doeblockFileTypes.get(ext, 'plaintext')
 
 def compile_prompt_data(data, root=""):
+    # If the block is toggled OFF, return empty content
+    if not data.get("is_active", True):
+        return ""
+
     mode = data.get("type", "Message")
     text = data.get("text", "").strip()
     tgt = data.get("target_path", "")

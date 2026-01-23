@@ -1,11 +1,11 @@
 import os
 from PyQt6.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, QFrame,
                              QComboBox, QPushButton, QFileDialog, QPlainTextEdit, 
-                             QLineEdit)
+                             QLineEdit, QCheckBox)
 from PyQt6.QtCore import Qt, pyqtSignal, QSize
 from PyQt6.QtGui import QCursor, QIcon, QPainter, QColor
 
-from components.styles import C_BG_MAIN, C_DANGER, C_TEXT_MUTED, C_TEXT_MAIN, C_BORDER, C_BG_INPUT, C_PRIMARY
+from components.styles import C_BG_MAIN, C_DANGER, C_TEXT_MUTED, C_TEXT_MAIN, C_BORDER, C_BG_INPUT, C_PRIMARY, C_SUCCESS
 
 # Import from siblings
 from .common import DroppableLineEdit
@@ -34,7 +34,38 @@ class PromptItemWidget(QWidget):
         self.main_layout.setContentsMargins(0, 0, 0, 0)
         self.main_layout.setSpacing(0)
 
-        # 0. Header Tag
+        # ---------------------------------------------------------
+        # 0. Header Row (Toggle + Tag)
+        # ---------------------------------------------------------
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(4, 2, 0, 0)
+        header_layout.setSpacing(6)
+
+        # A. Custom Active Toggle
+        self.chk_active = QCheckBox()
+        self.chk_active.setChecked(True)
+        self.chk_active.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chk_active.setToolTip("Enable/Disable this block in generation")
+        self.chk_active.setStyleSheet(f"""
+            QCheckBox::indicator {{
+                width: 14px;
+                height: 14px;
+                border-radius: 2px;
+                background-color: {C_BORDER};
+            }}
+            QCheckBox::indicator:checked {{
+                background-color: {C_SUCCESS}; 
+                image: url(none);
+            }}
+            QCheckBox::indicator:unchecked {{
+                background-color: {C_DANGER};
+            }}
+        """)
+        self.chk_active.toggled.connect(self.on_toggle_active)
+        self.chk_active.toggled.connect(self._emit)
+        header_layout.addWidget(self.chk_active)
+
+        # B. Header Tag
         self.lbl_header_tag = QLabel("</>")
         self.lbl_header_tag.setFixedHeight(20)
         self.lbl_header_tag.setStyleSheet(f"""
@@ -46,13 +77,17 @@ class PromptItemWidget(QWidget):
                 padding: 2px 6px;
                 border-top-left-radius: 4px;
                 border-top-right-radius: 4px;
-                margin-left: 20px; 
             }}
         """)
         self.lbl_header_tag.setVisible(False)
-        self.main_layout.addWidget(self.lbl_header_tag, alignment=Qt.AlignmentFlag.AlignLeft)
+        header_layout.addWidget(self.lbl_header_tag)
+        
+        header_layout.addStretch()
+        self.main_layout.addLayout(header_layout)
 
+        # ---------------------------------------------------------
         # --- Content Container (Horizontal) ---
+        # ---------------------------------------------------------
         self.content_widget = QWidget()
         content_layout = QHBoxLayout(self.content_widget)
         content_layout.setContentsMargins(4, 4, 4, 4)
@@ -118,7 +153,7 @@ class PromptItemWidget(QWidget):
         row_p.addWidget(self.ln_path)
         row_p.addWidget(self.btn_br)
         
-        # Row 2: Ignore
+        # Row 2: Ignore (Restored to Body)
         self.ln_ignore = QLineEdit()
         self.ln_ignore.setPlaceholderText("Ignore: .git, node_modules, ...")
         self.ln_ignore.setText(".git, node_modules, __pycache__, .idea, .vscode, dist, build")
@@ -198,7 +233,7 @@ class PromptItemWidget(QWidget):
         base = 25 
         mode = self.combo_type.currentText()
         if mode == "Message":
-            return base + 50 
+            return base + 60 
         elif mode == "File":
             return base + 20 + 40 + 30 
         elif mode == "Folder Tree":
@@ -225,8 +260,6 @@ class PromptItemWidget(QWidget):
     def resize_mouse_release(self, event):
         self.resizing = False
         event.accept()
-        # BUG FIX: Removed self._emit() here. 
-        # Resizing view does not change generated content.
 
     def enforce_min_height(self):
         min_req = self.get_ui_min_height()
@@ -238,6 +271,7 @@ class PromptItemWidget(QWidget):
     def _apply_read_only_mode(self):
         self.combo_type.setEnabled(False)
         self.combo_mode.setEnabled(False)
+        self.chk_active.setEnabled(False)
         self.txt_prompt.setReadOnly(True)
         self.ln_ignore.setReadOnly(True)
         self.ln_path.setAcceptDrops(False)
@@ -251,6 +285,15 @@ class PromptItemWidget(QWidget):
     def _emit(self): 
         if not self.read_only:
             self.contentChanged.emit()
+
+    def on_toggle_active(self, checked):
+        # Visual feedback: Reduce opacity/color when disabled
+        opacity = 1.0 if checked else 0.4
+        self.content_widget.setStyleSheet(f"QWidget {{ opacity: {opacity}; }}")
+        
+        # Also gray out the text area specifically so it looks disabled
+        color = C_TEXT_MAIN if checked else C_TEXT_MUTED
+        self.txt_prompt.setStyleSheet(f"color: {color};")
 
     def on_type_changed(self, text):
         is_msg = text == "Message"
@@ -318,6 +361,7 @@ class PromptItemWidget(QWidget):
             "target_path": self.target_path,
             "ignore_patterns": self.ln_ignore.text(),
             "tree_inject_files": self.inject_helper.get_files(),
+            "is_active": self.chk_active.isChecked(),
             "height": current_h if current_h > 0 else 80
         }
 
@@ -329,6 +373,10 @@ class PromptItemWidget(QWidget):
         self.ln_ignore.setText(d.get("ignore_patterns", ".git, node_modules, __pycache__, .idea, .vscode, dist, build"))
         self.target_path = d.get("target_path", "")
         self.inject_helper.set_files(d.get("tree_inject_files", []))
+        
+        # Restore active state
+        self.chk_active.setChecked(d.get("is_active", True))
+        self.on_toggle_active(self.chk_active.isChecked())
         
         h = d.get("height", 0)
         if h > 50:

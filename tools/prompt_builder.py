@@ -432,8 +432,11 @@ class PromptComposerTool(QWidget):
         # 2. Append Standard Blocks
         for i in range(self.list_widget.count()):
             widget = self.list_widget.itemWidget(self.list_widget.item(i))
-            if widget: output.append(widget.get_compiled_output())
-            
+            if widget:
+                block = widget.get_compiled_output()
+                if block.strip():
+                    output.append(block)
+
         res = "\n".join(output)
         self.txt_result.setText(res)
         self.lbl_outdated.setVisible(False) 

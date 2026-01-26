@@ -40,7 +40,7 @@ class HelpWidget(QWidget):
                 background-color: #3d3d3d;
             }}
         """)
-        self.topic_list.setFixedWidth(200)
+        self.topic_list.setMaximumWidth(300)
         self.topic_list.currentRowChanged.connect(self.display_page)
 
         # --- RIGHT: Content Browser ---

@@ -13,10 +13,42 @@ from components.db_manager import DBManager
 from components.dep_checker import DependencyChecker 
 
 # Tools (Standard)
-from tools.prompt_builder import PromptComposerTool
-from tools.db_editor import DatabaseEditorTool
-from tools.help import HelpViewerTool
 
+def launch_prompt_builder_tool():
+    try:
+        from tools.prompt_builder import PromptComposerTool
+        widget = PromptComposerTool()
+        return widget
+    except Exception as e:
+        traceback.print_exc()
+        raise RuntimeError(f"Failed to launch Prompt Builder Tool:\n{str(e)}\n\n{traceback.format_exc()}")
+    
+def launch_db_editor_tool():
+    try:
+        from tools.db_editor import DatabaseEditorTool
+        widget = DatabaseEditorTool()
+        return widget
+    except Exception as e:
+        traceback.print_exc()
+        raise RuntimeError(f"Failed to launch Database Editor Tool:\n{str(e)}\n\n{traceback.format_exc()}")
+    
+def launch_audio_visualizer_tool():
+    try:
+        from tools.audio_viz import AudioVisualizerTool
+        widget = AudioVisualizerTool()
+        return widget
+    except Exception as e:
+        traceback.print_exc()
+        raise RuntimeError(f"Failed to launch Audio Visualizer Tool:\n{str(e)}\n\n{traceback.format_exc()}")
+    
+def launch_help_viewer_tool():
+    try:
+        from tools.help import HelpViewerTool
+        widget = HelpViewerTool()
+        return widget
+    except Exception as e:
+        traceback.print_exc()
+        raise RuntimeError(f"Failed to launch Help Viewer Tool:\n{str(e)}\n\n{traceback.format_exc()}")
 class AppShell(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -56,12 +88,12 @@ class AppShell(QMainWindow):
         
         # Prompt Builder Tool
         act_prompts = QAction("Prompt Builder", self)
-        act_prompts.triggered.connect(lambda: self.safe_launch_tool(PromptComposerTool, "PROMPT BUILDER"))
+        act_prompts.triggered.connect(lambda: self.safe_launch_tool_fn(launch_prompt_builder_tool, "PROMPT BUILDER"))
         tools_menu.addAction(act_prompts)
 
         # DB Editor Tool
         act_db = QAction("Database Editor", self)
-        act_db.triggered.connect(lambda: self.safe_launch_tool(DatabaseEditorTool, "DB EDITOR"))
+        act_db.triggered.connect(lambda: self.safe_launch_tool_fn(launch_db_editor_tool, "DB EDITOR"))
         tools_menu.addAction(act_db)
 
         tools_menu.addSeparator()
@@ -71,12 +103,12 @@ class AppShell(QMainWindow):
         # Audio Viz Tool
         act_viz = QAction("Audio Visualizer", self)
         # We connect to a specific method instead of a lambda with the class directly
-        act_viz.triggered.connect(self.launch_audio_viz) 
+        act_viz.triggered.connect(lambda: self.safe_launch_tool_fn(launch_audio_visualizer_tool, "AUDIO VISUALIZER")) 
         act_other_menu.addAction(act_viz)
 
         tools_menu.addSeparator()
         help_action = QAction("Help / Documentation", self)
-        help_action.triggered.connect(lambda: self.safe_launch_tool(HelpViewerTool, "HELP"))
+        help_action.triggered.connect(lambda: self.safe_launch_tool_fn(launch_help_viewer_tool, "HELP"))
         tools_menu.addAction(help_action)
 
         # --- CENTRAL ---
@@ -93,30 +125,22 @@ class AppShell(QMainWindow):
         
         self.add_home_tab()
 
-    def launch_audio_viz(self):
-        """
-        Lazy load the Audio Tool. 
-        This ensures main.py doesn't crash on startup if libraries are missing.
-        """
-        try:
-            # Import here so it happens AFTER the Dependency Check in main
-            from tools.audio_viz import AudioVisualizerTool 
-            self.safe_launch_tool(AudioVisualizerTool, "AUDIO VIZ")
-        except ImportError as e:
-            QMessageBox.critical(self, "Dependency Missing", 
-                                 f"Could not load Audio Visualizer.\n\n"
-                                 f"Please ensure you have installed requirements:\n{str(e)}")
-        except Exception as e:
-            traceback.print_exc()
-            QMessageBox.critical(self, "Error", str(e))
-
     def safe_launch_tool(self, tool_class, title):
         try:
             widget = tool_class()
             self.add_tab(widget, title)
         except Exception as e:
             traceback.print_exc()
-            QMessageBox.critical(self, "Launch Error", f"Failed to launch {title}:\n{str(e)}")
+            QMessageBox.critical(self, "Launch Error", f"Error with {title}:\n{str(e)}")
+
+    def safe_launch_tool_fn(self, tool_fn, title):
+        try:
+            widget = tool_fn()
+            self.add_tab(widget, title)
+        except Exception as e:
+            traceback.print_exc()
+            QMessageBox.critical(self, "Launch Error", f"Error with {title}:\n{str(e)}")
+        
 
     def add_tab(self, widget, title):
         try:
@@ -180,11 +204,11 @@ class AppShell(QMainWindow):
     def handle_home_request(self, tool_key):
         """Handles button clicks from the Home Dashboard"""
         if tool_key == "prompt":
-            self.safe_launch_tool(PromptComposerTool, "PROMPT BUILDER")
+            self.safe_launch_tool_fn(launch_prompt_builder_tool, "PROMPT BUILDER")
         elif tool_key == "db":
-            self.safe_launch_tool(DatabaseEditorTool, "DB EDITOR")
+            self.safe_launch_tool_fn(launch_db_editor_tool, "DB EDITOR")
         elif tool_key == "help":
-            self.safe_launch_tool(HelpViewerTool, "HELP")
+            self.safe_launch_tool_fn(launch_help_viewer_tool, "HELP")
 
     def close_tab(self, index): 
         try:

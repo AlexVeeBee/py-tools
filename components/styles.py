@@ -162,21 +162,37 @@ MAIN_THEME_DARK = f"""
     QMenu::item {{ padding: 4px 24px; }}
     QMenu::item:selected {{ background-color: {C_PRIMARY}; color: {C_BG_MAIN}; }}
 
-    /* COMBO BOX */
-    QComboBox {{
-        background-color: {C_BG_INPUT};
-        border: 1px solid {C_BORDER};
-        padding: 2px 5px;
+    /* ITEMS - FIX SHIFTING & ICON SPACE */
+    QComboBox::item {{
+        min-height: 16px;
+        height: 16px;
+        /* Padding: Top/Bottom 4px, Left/Right 10px 
+           This overrides the default 'icon slot' space */
+        padding: 4px 0px;
+        padding-left: -12px; /* Remove extra space for icon */ 
+        margin: 0px;
+        border: none; /* Removing border prevents jumping on hover */
         color: {C_TEXT_MAIN};
     }}
 
-    QComboBox QAbstractItemView {{
-        background-color: {C_BG_SURFACE};
-        border: 1px solid {C_BORDER};
-        selection-background-color: {C_PRIMARY};
-        selection-color: {C_BG_MAIN};
+    /* HOVER STATE */
+    QComboBox::item:hover {{
+        background-color: {C_PRIMARY};
+        color: {C_BG_MAIN};
+        border: none; /* Ensure no border here either */
+        padding: 4px 0px; /* MUST match normal state exactly */
+        padding-left: -12px; /* Remove extra space for icon */ 
     }}
-    
+
+    /* SELECTED STATE (Keyboard/Current) */
+    QComboBox::item:selected {{
+        background-color: {C_PRIMARY};
+        color: {C_BG_MAIN};
+        border: none; 
+        padding: 4px 0px; /* MUST match normal state exactly */
+        padding-left: -12px; /* Remove extra space for icon */ 
+    }}
+
     /* SPLITTER */
     QSplitter::handle {{ background: {C_BORDER}; }}
     QSplitter::handle:horizontal {{ width: 1px; }}

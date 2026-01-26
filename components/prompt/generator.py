@@ -28,6 +28,14 @@ def get_codeblock_language(path):
     ext = os.path.splitext(path)[1][1:].lower()
     return doeblockFileTypes.get(ext, 'plaintext')
 
+def read_file_content(path):
+    """Safely reads a file and returns its content."""
+    try:
+        with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+            return f.read()
+    except Exception as e:
+        return f"[Error reading file: {str(e)}]"
+
 def compile_prompt_data(data, root=""):
     # If the block is toggled OFF, return empty content
     if not data.get("is_active", True):

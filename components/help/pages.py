@@ -3,16 +3,17 @@ from components.styles import C_TEXT_MAIN, C_PRIMARY, C_BORDER
 # Base CSS shared across all pages
 BASE_STYLE = f"""
 <style>
-    body {{ font-family: sans-serif; color: {C_TEXT_MAIN}; line-height: 1.6; }}
-    h1 {{ color: {C_PRIMARY}; margin-bottom: 10px; border-bottom: 2px solid {C_BORDER}; padding-bottom: 10px; }}
-    h2 {{ color: #e0e0e0; margin-top: 25px; margin-bottom: 10px; }}
-    h3 {{ color: {C_PRIMARY}; margin-top: 20px; font-size: 14px; }}
-    code {{ background-color: #2b2b2b; padding: 2px 5px; border-radius: 4px; font-family: monospace; color: #e6db74; }}
-    pre {{ background-color: #1e1e1e; padding: 15px; border-radius: 5px; color: #f8f8f2; border: 1px solid {C_BORDER}; }}
-    li {{ margin-bottom: 8px; }}
-    .key {{ background-color: #444; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; }}
-    .warn {{ color: #ff6b6b; font-weight: bold; }}
-    .tip {{ color: #6bff81; font-weight: bold; }}
+    body {{ font-family: 'Segoe UI', sans-serif; color: {C_TEXT_MAIN}; line-height: 1.6; font-size: 14px; }}
+    h1 {{ color: {C_PRIMARY}; margin-bottom: 15px; border-bottom: 2px solid {C_BORDER}; padding-bottom: 10px; font-size: 22px; }}
+    h2 {{ color: #e0e0e0; margin-top: 25px; margin-bottom: 10px; font-size: 18px; border-left: 4px solid {C_PRIMARY}; padding-left: 10px; }}
+    h3 {{ color: {C_PRIMARY}; margin-top: 20px; font-size: 16px; font-weight: bold; }}
+    code {{ background-color: #2b2b2b; padding: 2px 6px; border-radius: 4px; font-family: 'Consolas', monospace; color: #e6db74; font-size: 0.9em; }}
+    pre {{ background-color: #1e1e1e; padding: 15px; border-radius: 5px; color: #f8f8f2; border: 1px solid {C_BORDER}; overflow-x: auto; font-family: 'Consolas', monospace; }}
+    li {{ margin-bottom: 6px; }}
+    .key {{ background-color: #444; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; border: 1px solid #555; }}
+    .warn {{ color: #ff8080; font-weight: bold; }}
+    .tip {{ color: #80ff80; font-weight: bold; }}
+    .folder {{ color: #5fb3b3; }}
 </style>
 """
 
@@ -88,8 +89,8 @@ PAGES = {
     "5. Tips & Shortcuts": wrap_page("Tips & Tricks", """
         <h2>Shortcuts</h2>
         <ul>
-            <li><span class="key">Drag & Drop</span>: Drag files from your OS onto text inputs to fill paths.</li>
-            <li><span class="key">Enter</span>: In text inputs, confirms the path.</li>
+            <li><span class="key">Drag & Drop</span>: Drag files from your OS onto the list to add new blocks.</li>
+            <li><span class="key">Drag & Drop</span>: Drag files onto specific Input fields to update just that block.</li>
         </ul>
 
         <h2>Ignore Patterns</h2>
@@ -98,5 +99,62 @@ PAGES = {
         
         <h2>Reordering</h2>
         <p>Grab the <span class="key">||</span> handle on the left side of any block to drag and reorder it within the stack.</p>
+    """),
+
+    "6. Developer Guide: Creating Plugins": wrap_page("Creating Plugins", """
+        <p>You can extend functionality by creating custom blocks in the <span class="folder">plugins/</span> folder.</p>
+
+        <h2>1. The Interface</h2>
+        <p>All plugins must inherit from <code>BlockPluginInterface</code>.</p>
+
+        <h2>2. Basic Template</h2>
+        <p>Create a file named <code>my_plugin.py</code> inside the plugins folder:</p>
+        
+        <pre>
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
+from components.plugin_system import BlockPluginInterface
+
+class MyCustomBlock(BlockPluginInterface):
+    @property
+    def name(self): return "My Custom Block"
+    
+    @property
+    def id(self): return "custom.my_block"
+                                                         
+    @property
+    def drag_types(self): return ['file', 'folder']
+
+    def create_ui(self, parent, root_getter):
+        # 1. Create the Widget
+        widget = QWidget(parent)
+        layout = QVBoxLayout(widget)
+        
+        # 2. Add Controls
+        self.input = QLabel("Hello World", widget)
+        layout.addWidget(self.input)
+        
+        # 3. Store references for get_state
+        widget.refs = {"lbl": self.input}
+        
+        return widget
+
+    def get_state(self, widget):
+        # Save UI state to JSON-serializable dict
+        return {"value": widget.refs["lbl"].text()}
+
+    def set_state(self, widget, state):
+        # Restore UI from dict
+        widget.refs["lbl"].setText(state.get("value", ""))
+
+    def compile(self, state, root):
+        # Return string for the LLM
+        return f"MY BLOCK SAYS: {state.get('value')}"
+        </pre>
+        
+        <h2>3. Key Concepts</h2>
+        <ul>
+            <li><b>Signals:</b> Emit <code>self.dataChanged.emit()</code> whenever a user types or changes an input. This triggers the auto-save check and preview update.</li>
+            <li><b>References:</b> Store your input widgets (QLineEdit, etc.) in <code>widget.refs</code> or as attributes of the widget you return so you can read them in <code>get_state</code>.</li>
+        </ul>
     """)
 }

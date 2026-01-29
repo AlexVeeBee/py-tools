@@ -125,12 +125,41 @@ MAIN_THEME_DARK = f"""
         border: 1px solid {C_BORDER};
     }}
 
-    /* --- CHECKBOXES & TREE INDICATORS --- */
+    /* --- CHECKBOXES, TREE & GROUPBOX INDICATORS --- */
     
-    QCheckBox {{
+    QCheckBox, QTreeView, QGroupBox {{
         spacing: 6px;
         color: {C_TEXT_MAIN};
         background: transparent;
+    }}
+
+    /* The box itself (Unchecked) */
+    QCheckBox::indicator, QTreeView::indicator, QGroupBox::indicator {{
+        width: 14px;
+        height: 14px;
+        border: 1px solid {C_CHECKBOX_BORDER};
+        background-color: {C_CHECKBOX_BG};
+        border-radius: 2px;
+    }}
+
+    /* Hover over the box (Unchecked) */
+    QCheckBox::indicator:hover, QTreeView::indicator:hover, QGroupBox::indicator:hover {{
+        border: 1px solid {C_PRIMARY};
+        background-color: {C_BG_INPUT};
+    }}
+
+    /* Checked State - Orange background with Dark Tick */
+    QCheckBox::indicator:checked, QTreeView::indicator:checked, QGroupBox::indicator:checked {{
+        background-color: {C_PRIMARY};
+        border: 1px solid {C_PRIMARY};
+        image: url(:/images/checkmark.png);
+    }}
+
+    /* Checked State Hover - Slightly Darker Orange */
+    QCheckBox::indicator:checked:hover, QTreeView::indicator:checked:hover, QGroupBox::indicator:checked:hover {{
+        background-color: {C_SECONDARY};
+        border: 1px solid {C_SECONDARY};
+        image: url(:/images/checkmark.png);
     }}
 
     /* BUTTONS */
@@ -163,6 +192,13 @@ MAIN_THEME_DARK = f"""
     QMenu::item:selected {{ background-color: {C_PRIMARY}; color: {C_BG_MAIN}; }}
 
     /* ITEMS - FIX SHIFTING & ICON SPACE */
+    QComboBox {{
+        background-color: {C_BG_INPUT};
+        border: 1px solid {C_BORDER};
+        padding: 2px 5px;
+        color: {C_TEXT_MAIN};
+    }}
+
     QComboBox::item {{
         min-height: 16px;
         height: 16px;

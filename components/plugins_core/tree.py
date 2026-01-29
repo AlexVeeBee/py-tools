@@ -107,10 +107,16 @@ class TreeBlock(BlockPluginInterface):
         d = QFileDialog.getExistingDirectory(c)
         if d: self._handle_drop(c, d, rg)
 
+    def _get_root_path(self, rg):
+        root = rg()
+        if root and os.path.isdir(root):
+            return root
+        return os.path.expanduser("~")
+
     def _update_display(self, c, rg):
         p = c.refs["target_path"]
         m = c.refs["mode"].currentText()
-        txt = get_formatted_path(p, m, rg())
+        txt = get_formatted_path(p, m, self._get_root_path(rg))
         c.refs["path_display"].setText(txt)
         
         if hasattr(c, "set_tag_cb") and c.set_tag_cb:
@@ -132,7 +138,7 @@ class TreeBlock(BlockPluginInterface):
         w.refs["ignore"].setText(s.get("ignore", ""))
         w.refs["helper"].set_files(s.get("inject", []))
         w.refs["path_display"].setText(s.get("path", ""))
-        self._update_display(w, w.get_root)
+        self._update_display(w, lambda: os.path.expanduser("~"))
 
     def compile(self, s, root, **kwargs):
         p = s.get("path", "")

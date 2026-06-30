@@ -1,16 +1,19 @@
 import traceback
 import sys
 import os
+import json
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QTabWidget, 
                              QWidget, QHBoxLayout, QStyle, QMenu, QLabel, QMessageBox)
 from PyQt6.QtGui import QAction, QKeySequence, QCloseEvent
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 
 # Components
 from components.styles import MAIN_THEME_DARK
 from components.placeholder import PlaceholderWidget
 from components.db_manager import DBManager
 from components.dep_checker import DependencyChecker 
+
+AUTOSAVE_FILE = "autosave_session.json"
 
 # Tools (Standard)
 def launch_prompt_builder_tool():
@@ -31,15 +34,6 @@ def launch_db_editor_tool():
         traceback.print_exc()
         raise RuntimeError(f"Failed to launch Database Editor Tool:\n{str(e)}\n\n{traceback.format_exc()}")
     
-# def launch_audio_visualizer_tool():
-#     try:
-#         from tools.audio_viz import AudioVisualizerTool
-#         widget = AudioVisualizerTool()
-#         return widget
-#     except Exception as e:
-#         traceback.print_exc()
-#         raise RuntimeError(f"Failed to launch Audio Visualizer Tool:\n{str(e)}\n\n{traceback.format_exc()}")
-
 def launch_gallery_tool():
     try:
         from tools.ui_plus_gallery import GalleryPage
@@ -137,7 +131,99 @@ class AppShell(QMainWindow):
         self.tabs.tabCloseRequested.connect(self.close_tab)
         layout.addWidget(self.tabs)
         
-        self.add_home_tab()
+        # --- AUTOSAVE TIMER ---
+        self.autosave_timer = QTimer(self)
+        self.autosave_timer.timeout.connect(self.autosave_session)
+        self.autosave_timer.start(10000) # Save every 10 seconds
+
+        # Check for crash recovery / restore previous session
+        self.restore_session()
+
+    def autosave_session(self):
+        session_data = []
+        has_prompt_builder = False
+        
+        for i in range(self.tabs.count()):
+            widget = self.tabs.widget(i)
+            # We only autosave PromptComposerTool tabs
+            if widget.__class__.__name__ == "PromptComposerTool":
+                has_prompt_builder = True
+                try:
+                    data = {
+                        "tool": "PromptComposerTool",
+                        "base_title": getattr(widget, '_base_title', "PROMPT BUILDER"),
+                        "save_name": widget.current_save_name,
+                        "is_modified": widget.is_modified,
+                        "state": widget._gather_data()
+                    }
+                    session_data.append(data)
+                except Exception as e:
+                    print("Error gathering tab data for autosave:", e)
+        
+        # Write to file safely if we have prompt builder tabs open, else remove file
+        if has_prompt_builder:
+            try:
+                with open(AUTOSAVE_FILE, 'w', encoding='utf-8') as f:
+                    json.dump(session_data, f)
+            except Exception as e:
+                print("Autosave failed:", e)
+        else:
+            if os.path.exists(AUTOSAVE_FILE):
+                try: os.remove(AUTOSAVE_FILE)
+                except Exception: pass
+
+    def restore_session(self):
+        if not os.path.exists(AUTOSAVE_FILE):
+            self.add_home_tab()
+            return
+            
+        try:
+            with open(AUTOSAVE_FILE, 'r', encoding='utf-8') as f:
+                session_data = json.load(f)
+                
+            if not session_data:
+                self.add_home_tab()
+                return
+
+            reply = QMessageBox.question(
+                self, "Restore Session", 
+                "An unsaved session from a previous run or crash was found.\nDo you want to restore your tabs?",
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+            )
+            
+            if reply == QMessageBox.StandardButton.Yes:
+                restored_any = False
+                for tab_data in session_data:
+                    if tab_data.get("tool") == "PromptComposerTool":
+                        from tools.prompt_builder import PromptComposerTool
+                        widget = PromptComposerTool()
+                        
+                        # Apply the exact state it was in
+                        widget._load_data(tab_data.get("state", {}))
+                        widget.current_save_name = tab_data.get("save_name")
+                        widget.set_modified(tab_data.get("is_modified", False))
+                        
+                        base_title = tab_data.get("base_title", "PROMPT BUILDER")
+                        self.add_tab(widget, base_title)
+                        
+                        # Re-apply the asterisk visual indicator if it was modified
+                        self.update_tab_title(widget, tab_data.get("is_modified", False))
+                        restored_any = True
+                
+                if not restored_any:
+                    self.add_home_tab()
+            else:
+                # User chose not to restore -> Delete the file
+                try: os.remove(AUTOSAVE_FILE)
+                except Exception: pass
+                self.add_home_tab()
+                
+        except Exception as e:
+            traceback.print_exc()
+            print("Failed to restore session:", e)
+            try: os.remove(AUTOSAVE_FILE)
+            except Exception: pass
+            self.add_home_tab()
 
     def safe_launch_tool(self, tool_class, title):
         try:
@@ -160,7 +246,6 @@ class AppShell(QMainWindow):
             index = self.tabs.addTab(widget, title)
             self.tabs.setCurrentIndex(index)
             
-            # Save the base title to handle asterisks and renames dynamically
             widget._base_title = title 
             
             if hasattr(widget, 'statusMessage'):
@@ -182,8 +267,7 @@ class AppShell(QMainWindow):
             widget._base_title = new_name
             is_mod = getattr(widget, 'is_modified', False)
             self.tabs.setTabText(index, f"{new_name} *" if is_mod else new_name)
-        except Exception:
-            pass
+        except Exception: pass
 
     def update_tab_title(self, widget, is_modified):
         try:
@@ -191,18 +275,14 @@ class AppShell(QMainWindow):
             if index == -1: return
             base_name = getattr(widget, '_base_title', self.tabs.tabText(index).replace(" *", ""))
             self.tabs.setTabText(index, f"{base_name} *" if is_modified else base_name)
-        except Exception:
-            pass 
+        except Exception: pass 
 
     def trigger_save(self):
         try:
             current_widget = self.tabs.currentWidget()
             if not current_widget: return
-            
-            if hasattr(current_widget, 'save_content'):
-                current_widget.save_content()
-            else:
-                self.status_label.setText("This tab cannot be saved.")
+            if hasattr(current_widget, 'save_content'): current_widget.save_content()
+            else: self.status_label.setText("This tab cannot be saved.")
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(self, "Save Error", f"An error occurred while saving:\n{str(e)}")
@@ -211,11 +291,8 @@ class AppShell(QMainWindow):
         try:
             current_widget = self.tabs.currentWidget()
             if not current_widget: return
-
-            if hasattr(current_widget, 'load_content'):
-                current_widget.load_content()
-            else:
-                self.status_label.setText("This tab cannot load data.")
+            if hasattr(current_widget, 'load_content'): current_widget.load_content()
+            else: self.status_label.setText("This tab cannot load data.")
         except Exception as e:
             traceback.print_exc()
             QMessageBox.critical(self, "Load Error", f"An error occurred while loading:\n{str(e)}")
@@ -223,20 +300,14 @@ class AppShell(QMainWindow):
     def add_home_tab(self):
         try:
             home_widget = PlaceholderWidget()
-            # Connect the signal from the dashboard to the handler
             home_widget.toolRequested.connect(self.handle_home_request)
             self.add_tab(home_widget, "HOME")
-        except Exception:
-            traceback.print_exc()
+        except Exception: traceback.print_exc()
 
     def handle_home_request(self, tool_key):
-        """Handles button clicks from the Home Dashboard"""
-        if tool_key == "prompt":
-            self.safe_launch_tool_fn(launch_prompt_builder_tool, "PROMPT BUILDER")
-        elif tool_key == "db":
-            self.safe_launch_tool_fn(launch_db_editor_tool, "DB EDITOR")
-        elif tool_key == "help":
-            self.safe_launch_tool_fn(launch_help_viewer_tool, "HELP")
+        if tool_key == "prompt": self.safe_launch_tool_fn(launch_prompt_builder_tool, "PROMPT BUILDER")
+        elif tool_key == "db": self.safe_launch_tool_fn(launch_db_editor_tool, "DB EDITOR")
+        elif tool_key == "help": self.safe_launch_tool_fn(launch_help_viewer_tool, "HELP")
 
     def close_tab(self, index): 
         try:
@@ -244,8 +315,7 @@ class AppShell(QMainWindow):
             if not widget: return
 
             if hasattr(widget, 'handle_unsaved_changes'):
-                if not widget.handle_unsaved_changes():
-                    return 
+                if not widget.handle_unsaved_changes(): return 
 
             conn_name_to_remove = None
             if hasattr(widget, 'cleanup'):
@@ -272,11 +342,18 @@ class AppShell(QMainWindow):
                 widget = self.tabs.widget(i)
                 self.tabs.setCurrentIndex(i)
                 
+                # If cleanly closed, trigger standard Qt save alerts 
                 if hasattr(widget, 'handle_unsaved_changes'):
                     if not widget.handle_unsaved_changes():
                         event.ignore()
                         return
+            
             event.accept()
+            # Everything was closed beautifully and willingly -> remove autosave file
+            if os.path.exists(AUTOSAVE_FILE):
+                try: os.remove(AUTOSAVE_FILE)
+                except Exception: pass
+                
         except Exception as e:
             traceback.print_exc()
             reply = QMessageBox.question(self, "Error on Exit", 
@@ -284,29 +361,25 @@ class AppShell(QMainWindow):
                                          QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
             if reply == QMessageBox.StandardButton.Yes:
                 event.accept()
+                if os.path.exists(AUTOSAVE_FILE):
+                    try: os.remove(AUTOSAVE_FILE)
+                    except Exception: pass
             else:
                 event.ignore()
 
 if __name__ == "__main__":
     try:
-        # 1. Initialize Application
         app = QApplication(sys.argv)
         app.setStyle("Fusion") 
         app.setStyleSheet(MAIN_THEME_DARK)
 
-        # 2. Check Dependencies 
-        # LOGIC CHANGE: We skip the check if we detect we are running in Pixi
-        # Pixi sets the 'PIXI_PROJECT_MANIFEST' environment variable.
         import os
         if "PIXI_PROJECT_MANIFEST" not in os.environ:
-            try:
-                DependencyChecker.check(None, "requirements.txt")
-            except Exception:
-                pass
+            try: DependencyChecker.check(None, "requirements.txt")
+            except Exception: pass
         else:
             print("Running in Pixi environment: Dependency check skipped.")
 
-        # 3. Launch Window
         window = AppShell()
         window.show()
         sys.exit(app.exec())

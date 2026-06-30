@@ -1,5 +1,5 @@
 import os
-from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QComboBox, QPlainTextEdit, QPushButton
+from PyQt6.QtWidgets import QWidget, QHBoxLayout, QVBoxLayout, QComboBox, QPlainTextEdit, QPushButton, QCheckBox
 from components.plugin_system import BlockPluginInterface
 from components.prompt.common import DroppableLineEdit
 from components.styles import C_TEXT_MAIN
@@ -23,14 +23,22 @@ class FileBlock(BlockPluginInterface):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
 
-        # 1. Config
+        # 1. Config (Left Column)
         col_cfg = QVBoxLayout()
         col_cfg.setContentsMargins(0,0,0,0)
+        
         self.cb_mode = QComboBox()
         self.cb_mode.addItems(["Relative Path", "Name Only", "Full Path"])
         self.cb_mode.currentIndexChanged.connect(lambda: self._update_display(container))
         self.cb_mode.currentIndexChanged.connect(self.dataChanged.emit)
         col_cfg.addWidget(self.cb_mode)
+        
+        # Output with codeblock toggle
+        self.chk_codeblock = QCheckBox("Codeblock")
+        self.chk_codeblock.setChecked(kwargs.get("output_with_codeblock", True))
+        self.chk_codeblock.stateChanged.connect(self.dataChanged.emit)
+        col_cfg.addWidget(self.chk_codeblock)
+        
         col_cfg.addStretch()
         
         w_cfg = QWidget()
@@ -38,17 +46,18 @@ class FileBlock(BlockPluginInterface):
         w_cfg.setLayout(col_cfg)
         layout.addWidget(w_cfg)
 
-        # 2. Text
+        # 2. Text (Middle Column)
         self.txt_prompt = QPlainTextEdit()
         self.txt_prompt.setPlaceholderText("// Context note...")
         self.txt_prompt.setStyleSheet(f"color: {C_TEXT_MAIN};")
         self.txt_prompt.textChanged.connect(self.dataChanged.emit)
         layout.addWidget(self.txt_prompt, stretch=3)
 
-        # 3. Path
+        # 3. Path (Right Column)
         col_path = QVBoxLayout()
         col_path.setContentsMargins(0,0,0,0)
         row_p = QHBoxLayout()
+        
         self.ln_path = DroppableLineEdit()
         self.ln_path.setReadOnly(True)
         self.ln_path.setPlaceholderText("<Drag file>")
@@ -56,6 +65,7 @@ class FileBlock(BlockPluginInterface):
 
         btn_br = QPushButton("...")
         btn_br.setFixedWidth(30)
+        btn_br.setStyleSheet(f"padding: 0px 4px; color: {C_TEXT_MAIN};")
         btn_br.clicked.connect(lambda: self._browse(container))
 
         row_p.addWidget(self.ln_path)
@@ -67,10 +77,12 @@ class FileBlock(BlockPluginInterface):
         w_path.setLayout(col_path)
         layout.addWidget(w_path, stretch=4)
 
+        # Store references to all interactive elements
         container.refs = {
             "mode": self.cb_mode,
             "text": self.txt_prompt,
             "path_display": self.ln_path,
+            "use_codeblock": self.chk_codeblock,
             "target_path": ""
         }
         
@@ -102,23 +114,24 @@ class FileBlock(BlockPluginInterface):
         # --- Update the parent item's header tag ---
         if hasattr(c, "set_tag_cb") and c.set_tag_cb:
             if p:
-                # Use file name and extension as tag
                 tag = os.path.basename(p)
                 c.set_tag_cb(tag)
             else:
-                c.set_tag_cb("") # Hide if empty
+                c.set_tag_cb("") 
 
     def get_state(self, w):
         return {
             "path": w.refs["target_path"],
             "mode": w.refs["mode"].currentText(),
-            "text": w.refs["text"].toPlainText()
+            "text": w.refs["text"].toPlainText(),
+            "use_codeblock": w.refs["use_codeblock"].isChecked()
         }
 
     def set_state(self, w, s):
         w.refs["target_path"] = s.get("path", "")
         w.refs["mode"].setCurrentText(s.get("mode", "Relative Path"))
         w.refs["text"].setPlainText(s.get("text", ""))
+        w.refs["use_codeblock"].setChecked(s.get("use_codeblock", True))
         self._update_display(w)
 
     def compile(self, s, root, **kwargs):
@@ -133,6 +146,10 @@ class FileBlock(BlockPluginInterface):
         header = f"File: {display_name}"
         if note: header += f" /* {note} */"
         
-        return f"\n{header}\n```{lang}\n{content}\n```\n"
+        # Read the checkbox state directly from the compiled state dictionary
+        if s.get("use_codeblock", True): 
+            return f"\n{header}\n```{lang}\n{content}\n```\n"
+        else:
+            return f"\n{header}\n{content}\n"
         
     def get_min_height(self): return 100

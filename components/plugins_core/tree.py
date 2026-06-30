@@ -20,9 +20,12 @@ class TreeBlock(BlockPluginInterface):
     @property
     def drag_types(self): return ["folder"]
 
-    # --- FIX: Add **kwargs here ---
     def create_ui(self, parent, root_getter, **kwargs):
         container = QWidget(parent)
+        
+        # Initialize refs early so FileInjectHelper can access "target_path" immediately
+        container.refs = {"target_path": ""}
+        
         layout = QHBoxLayout(container)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
@@ -68,10 +71,13 @@ class TreeBlock(BlockPluginInterface):
 
         self.helper = FileInjectHelper(
             container, 
-            path_getter=lambda: container.refs["target_path"],
-            ignore_getter=lambda: container.refs["ignore"].text()
+            path_getter=lambda: container.refs.get("target_path", ""),
+            ignore_getter=lambda: self.ln_ignore.text()
         )
         self.helper.filesChanged.connect(self.dataChanged.emit)
+        
+        # Make the UI recalculate totals smartly on ignore changes
+        self.ln_ignore.textChanged.connect(self.helper.update_ui)
 
         col_path.addLayout(row_p)
         col_path.addWidget(self.ln_ignore)
@@ -82,14 +88,14 @@ class TreeBlock(BlockPluginInterface):
         w_path.setLayout(col_path)
         layout.addWidget(w_path, stretch=4)
 
-        container.refs = {
+        # Update the rest of the references
+        container.refs.update({
             "mode": self.cb_mode,
             "text": self.txt_prompt,
             "path_display": self.ln_path,
             "ignore": self.ln_ignore,
-            "helper": self.helper,
-            "target_path": ""
-        }
+            "helper": self.helper
+        })
         
         # Capture optional tag callback
         container.set_tag_cb = kwargs.get("update_tag", None)
@@ -100,6 +106,7 @@ class TreeBlock(BlockPluginInterface):
         if os.path.isdir(p):
             c.refs["target_path"] = p
             self._update_display(c, rg)
+            c.refs["helper"].update_ui()  # Update counts immediately when a folder drops
             self.dataChanged.emit()
 
     def _browse(self, c, rg):
@@ -136,9 +143,12 @@ class TreeBlock(BlockPluginInterface):
         w.refs["mode"].setCurrentText(s.get("mode", "Relative Path"))
         w.refs["text"].setPlainText(s.get("text", ""))
         w.refs["ignore"].setText(s.get("ignore", ""))
-        w.refs["helper"].set_files(s.get("inject", []))
         w.refs["path_display"].setText(s.get("path", ""))
+        
         self._update_display(w, lambda: os.path.expanduser("~"))
+        
+        # Needs to happen after path/ignore is restored so counts are correct
+        w.refs["helper"].set_files(s.get("inject", []))
 
     def compile(self, s, root, **kwargs):
         p = s.get("path", "")
